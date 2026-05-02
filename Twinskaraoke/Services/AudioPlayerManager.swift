@@ -143,9 +143,6 @@ class AudioPlayerManager: ObservableObject {
       .receive(on: DispatchQueue.main)
       .sink { [weak self] sysVol in
         guard let self = self else { return }
-        // Skip when the user is mid-scrub: the slider drives volume in that
-        // direction, and re-applying the system value would create a feedback
-        // loop / ping-pong against the bridge view.
         guard !self.isUserScrubbingVolume else { return }
         let v = Double(sysVol)
         if abs(self.volume - v) > 0.01 { self.volume = v }
@@ -159,7 +156,6 @@ class AudioPlayerManager: ObservableObject {
   }
   func play(song: Song, context: [Song] = []) {
     if isRadioMode {
-      // Switching out of radio mode — stop the metadata polling timer.
       RadioController.shared.stop()
     }
     isRadioMode = false
@@ -204,8 +200,6 @@ class AudioPlayerManager: ObservableObject {
   private func startPlaying(url: URL) {
     itemObservers.removeAll()
     cancelAutoMix()
-    // Detach any existing audio mix on the previous item so the karaoke tap
-    // doesn't leak across replacements.
     player?.currentItem?.audioMix = nil
     let playerItem = AVPlayerItem(url: url)
     if player == nil {
@@ -296,9 +290,6 @@ class AudioPlayerManager: ObservableObject {
     standby.volume = 0
     crossfadePlayer = standby
     preloadedNext = (song.id, url)
-    // `preroll(atRate:)` requires the player to already be ready. Wait for the
-    // item's status to flip before requesting a preroll so AVPlayer doesn't
-    // throw `AVPlayerStatusReadyToPlay`-required exceptions.
     var statusObserver: AnyCancellable?
     statusObserver = item.publisher(for: \.status)
       .receive(on: DispatchQueue.main)
@@ -356,7 +347,6 @@ class AudioPlayerManager: ObservableObject {
         step += 1
         let t = Float(step) / Float(steps)
         let angle = t * Float.pi / 2
-        // Equal-power: summed energy stays roughly constant across the handoff.
         self.player?.volume = cos(angle)
         nextPlayer.volume = sin(angle)
         if step >= steps {
@@ -377,7 +367,6 @@ class AudioPlayerManager: ObservableObject {
     let startCrossfade: () -> Void = { [weak self] in
       guard let self, !crossfadeStarted, self.crossfadePlayer === nextPlayer else { return }
       crossfadeStarted = true
-      // Cancel the safety fallback now that we've started.
       self.crossfadeFallback?.cancel()
       self.crossfadeFallback = nil
       nextPlayer.seek(to: .zero, toleranceBefore: .zero, toleranceAfter: .zero) { [weak self] _ in
@@ -394,7 +383,6 @@ class AudioPlayerManager: ObservableObject {
             runRamp()
           }
         statusObserver?.store(in: &self.itemObservers)
-        // Backup: if status observer never fires, kick off ramp anyway.
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
           guard !rampStarted, self.crossfadePlayer === nextPlayer else { return }
           rampStarted = true
@@ -426,7 +414,6 @@ class AudioPlayerManager: ObservableObject {
         }
       }
     observer?.store(in: &itemObservers)
-    // Hard timeout: cancellable so a successful start can call `cancel()` on it.
     let fallback = DispatchWorkItem { [weak self] in
       guard let self, !crossfadeStarted, self.crossfadePlayer === nextPlayer else { return }
       observer?.cancel()
@@ -443,7 +430,6 @@ class AudioPlayerManager: ObservableObject {
     player = nextPlayer
     setupTimeObserver()
     if isShuffled {
-      // queue order already accounts for shuffle from initial play()
     }
     progress = 0
     withAnimation(.easeInOut(duration: 0.32)) {

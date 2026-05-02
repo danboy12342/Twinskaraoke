@@ -6,8 +6,6 @@ class SearchViewModel: ObservableObject {
   @Published var searchText = ""
   @Published var isSearching = false
   private var cancellables = Set<AnyCancellable>()
-  // Monotonic token bumped on every new query so stale completions can be
-  // dropped instead of clobbering a more recent search.
   private var queryToken: Int = 0
   init() {
     $searchText

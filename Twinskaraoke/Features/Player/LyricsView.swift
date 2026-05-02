@@ -174,8 +174,6 @@ private struct LyricLineRow: View {
     return .secondary.opacity(0.75)
   }
   private var lineBlur: CGFloat {
-    // Apple Music doesn't blur upcoming lines — they sit at full opacity.
-    // We only blur past lines slightly to push focus forward.
     guard isPast else { return 0 }
     return min(CGFloat(distance) * 0.3, 1.2)
   }

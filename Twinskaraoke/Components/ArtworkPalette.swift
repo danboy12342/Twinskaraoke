@@ -6,6 +6,7 @@ import UIKit
 /// Extracts dominant colors from an image so the player background can tint
 /// itself from the artwork. We sample the four corners + center for a quick,
 /// dependency-free palette that's good enough for ambient backgrounds.
+
 struct ArtworkPalette: Equatable {
   var primary: Color
   var secondary: Color
@@ -65,7 +66,6 @@ struct ArtworkPalette: Equatable {
         let r = bytes[offset]
         let g = bytes[offset + 1]
         let b = bytes[offset + 2]
-        // Quantize each channel to 5 bits to merge similar pixels.
         let key = (UInt32(r >> 3) << 10) | (UInt32(g >> 3) << 5) | UInt32(b >> 3)
         let color = UIColor(
           red: CGFloat(r) / 255, green: CGFloat(g) / 255, blue: CGFloat(b) / 255, alpha: 1)
@@ -74,7 +74,6 @@ struct ArtworkPalette: Equatable {
         var v: CGFloat = 0
         var a: CGFloat = 0
         color.getHue(&h, saturation: &s, brightness: &v, alpha: &a)
-        // Skip near-black/white.
         if v < 0.08 || v > 0.97 { continue }
         let existing = buckets[key]
         buckets[key] = ((existing?.count ?? 0) + 1, s, v)
@@ -82,7 +81,6 @@ struct ArtworkPalette: Equatable {
     }
     let ranked = buckets
       .map { (key: UInt32, value: (count: Int, saturation: CGFloat, brightness: CGFloat)) -> (UInt32, Double) in
-        // Score = pixel count × saturation^0.6, mildly favoring vibrant hues.
         let score = Double(value.count) * pow(Double(value.saturation) + 0.1, 0.6)
         return (key, score)
       }
@@ -95,7 +93,6 @@ struct ArtworkPalette: Equatable {
       let g = CGFloat((key >> 5) & 0x1F) / 31
       let b = CGFloat(key & 0x1F) / 31
       let candidate = UIColor(red: r, green: g, blue: b, alpha: 1)
-      // Reject candidates too close to ones we already picked.
       if picked.contains(where: { $0.distance(to: candidate) < 0.18 }) { continue }
       picked.append(candidate)
       if picked.count >= count { break }
@@ -106,6 +103,7 @@ struct ArtworkPalette: Equatable {
 }
 
 #if canImport(UIKit)
+
 private extension UIColor {
   func distance(to other: UIColor) -> CGFloat {
     var r1: CGFloat = 0; var g1: CGFloat = 0; var b1: CGFloat = 0; var a1: CGFloat = 0
