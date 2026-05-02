@@ -35,9 +35,6 @@ final class DownloadManager: ObservableObject {
     let dest = localURL(for: song.id)
     let songID = song.id
     let task = URLSession.shared.downloadTask(with: remote) { [weak self] tempURL, _, error in
-      // The temp file is deleted as soon as this closure returns synchronously.
-      // Move it to its final location *before* hopping to the main actor, then
-      // update published state from there.
       var moved = false
       if let tempURL, error == nil {
         try? FileManager.default.removeItem(at: dest)

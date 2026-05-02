@@ -6,6 +6,7 @@ import SDWebImageSwiftUI
 /// Apple Music–style ambient background: four album-art-tinted blobs that
 /// drift and morph behind a heavy material layer. Falls back to a static
 /// gradient when the artwork cannot be sampled.
+
 struct PlayerAmbientBackground: View {
   let artworkURL: URL?
   @State private var palette: ArtworkPalette = .placeholder

@@ -9,6 +9,7 @@ struct Song: Codable, Identifiable, Equatable {
   let coverArt: Media?
   let originalArtists: [String]?
   let coverArtists: [String]?
+
   enum CodingKeys: String, CodingKey {
     case id, title, duration, absolutePath, coverArt, originalArtists, coverArtists
     case cloudflareID = "cloudflareId"

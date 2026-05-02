@@ -7,6 +7,7 @@ import MediaToolbox
 ///
 /// This is a global processor (single attenuation value) because the tap's
 /// process callback must be `@convention(c)` and cannot capture state.
+
 enum KaraokeAudioProcessor {
   /// 0 = vocals untouched, 1 = vocals fully cancelled.
   static var vocalAttenuation: Float = 0
@@ -73,8 +74,6 @@ private let karaokeTapProcess: MTAudioProcessingTapProcessCallback = {
     let r = abl[1].mData?.assumingMemoryBound(to: Float.self)
   else { return }
 
-  // Mid/side decomposition: mid = (L+R)/2 carries vocals; side = (L-R)/2
-  // carries stereo-panned content. Scale mid down by `attenuation`, recombine.
   let keep = 1.0 - attenuation
   for i in 0..<frames {
     let mid = (l[i] + r[i]) * 0.5

@@ -53,7 +53,6 @@ struct FullScreenPlayerView: View {
       }
       .onChange(of: audioManager.currentSong?.id) { newId in
         if showLyrics, !audioManager.isRadioMode, let id = newId {
-          // If the next song's lyrics were prefetched, hand them over.
           if let prefetched = upcomingLyricsViewModel.lyrics.isEmpty ? nil : upcomingLyricsViewModel.lyrics,
              upcomingLyricsViewModel.loadedSongID == id {
             lyricsViewModel.adopt(songID: id, lyrics: prefetched)
@@ -429,7 +428,6 @@ struct FullScreenPlayerView: View {
   private var karaokeMicButton: some View {
     Button {
       if audioManager.karaokeMode {
-        // Second tap turns karaoke off and hides the slider.
         audioManager.karaokeMode = false
         showKaraokeControls = false
       } else {

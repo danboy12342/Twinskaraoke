@@ -47,6 +47,7 @@ struct RadioNowPlaying: Decodable {
 
   struct CustomFields: Decodable {
     let songID: String?
+
     enum CodingKeys: String, CodingKey {
       case songID = "songId"
     }

@@ -23,8 +23,6 @@ final class RadioController: ObservableObject {
   }
   func playLiveStream(retry: Int = 0) {
     guard let np = nowPlaying else {
-      // Cap recovery attempts so a flaky metadata endpoint doesn't loop
-      // forever while the user is staring at a spinning play button.
       guard retry < 1 else { return }
       Task {
         await refresh()

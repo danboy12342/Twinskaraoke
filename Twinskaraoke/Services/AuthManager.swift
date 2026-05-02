@@ -113,9 +113,6 @@ final class AuthManager: NSObject, ObservableObject, ASWebAuthenticationPresenta
             ]
             let callbackURL = try await withCheckedThrowingContinuation {
                 (cont: CheckedContinuation<URL, Error>) in
-                // Apple's API contract is "called once" but we've seen flaky
-                // network conditions trigger it twice. Resuming a continuation
-                // a second time is a hard crash, so gate it explicitly.
                 var didResume = false
                 let resume: (Result<URL, Error>) -> Void = { result in
                     guard !didResume else { return }

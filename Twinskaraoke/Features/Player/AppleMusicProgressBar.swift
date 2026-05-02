@@ -2,6 +2,7 @@ import SwiftUI
 
 /// Apple Music–style scrubbable progress capsule. Tap-and-drag to seek; the
 /// track height grows while the user is scrubbing for stronger feedback.
+
 struct AppleMusicProgressBar: View {
   @Binding var progress: Double
   @Binding var isScrubbing: Bool
