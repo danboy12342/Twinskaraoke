@@ -170,102 +170,31 @@ private struct LoginSheet: View {
   @State private var showPassword = false
   @FocusState private var focus: LoginField?
   private enum LoginField { case username, password }
+  private var canSubmit: Bool {
+    !username.isEmpty && !password.isEmpty && !auth.isLoading
+  }
   var body: some View {
     NavigationStack {
-      List {
-        Section {
-          TextField("Username", text: $username)
-            .textInputAutocapitalization(.never)
-            .autocorrectionDisabled()
-            .focused($focus, equals: .username)
-            .submitLabel(.next)
-            .onSubmit { focus = .password }
-          HStack {
-            Group {
-              if showPassword {
-                TextField("Password", text: $password)
-              } else {
-                SecureField("Password", text: $password)
-              }
-            }
-            .textInputAutocapitalization(.never)
-            .autocorrectionDisabled()
-            .focused($focus, equals: .password)
-            .submitLabel(.go)
-            .onSubmit { signIn() }
-            Button {
-              showPassword.toggle()
-            } label: {
-              Image(systemName: showPassword ? "eye.slash" : "eye")
-                .foregroundStyle(.secondary)
-            }
+      ScrollView {
+        VStack(spacing: 28) {
+          header
+          credentialsCard
+          if let err = auth.errorMessage, !err.isEmpty {
+            errorBanner(err)
           }
+          signInButton
+          divider
+          discordButton
+          footer
         }
-        if let err = auth.errorMessage, !err.isEmpty {
-          Section {
-            Label(err, systemImage: "exclamationmark.circle.fill")
-              .font(.footnote)
-              .foregroundStyle(.red)
-          }
-          .listRowBackground(Color.red.opacity(0.07))
-        }
-        Section {
-          Button(action: signIn) {
-            HStack {
-              Spacer()
-              Group {
-                if auth.isLoading {
-                  LoadingIndicator(size: 22)
-                } else {
-                  Text("Sign In")
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundStyle(.white)
-                }
-              }
-              Spacer()
-            }
-            .frame(height: 44)
-            .background(
-              LinearGradient(
-                colors: [Color(hex: "7C5CFC"), Color(hex: "B47BFF")],
-                startPoint: .leading, endPoint: .trailing
-              )
-              .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-            )
-          }
-          .disabled(auth.isLoading || username.isEmpty || password.isEmpty)
-          .opacity(username.isEmpty || password.isEmpty ? 0.55 : 1)
-          .listRowBackground(Color.clear)
-          .listRowInsets(.init(top: 0, leading: 0, bottom: 0, trailing: 0))
-        }
-        Section {
-          Button {
-            Task { await auth.loginWithDiscord() }
-          } label: {
-            HStack {
-              Spacer()
-              HStack(spacing: 10) {
-                DiscordIcon(size: 20, color: .white)
-                Text("Continue with Discord")
-                  .font(.system(size: 16, weight: .semibold))
-                  .foregroundStyle(.white)
-              }
-              Spacer()
-            }
-            .frame(height: 44)
-            .background(
-              Color(hex: "5865F2")
-                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-            )
-          }
-          .disabled(auth.isLoading)
-          .listRowBackground(Color.clear)
-          .listRowInsets(.init(top: 0, leading: 0, bottom: 0, trailing: 0))
-        }
+        .padding(.horizontal, 24)
+        .padding(.top, 32)
+        .padding(.bottom, 40)
+        .frame(maxWidth: .infinity)
       }
-      .listStyle(.insetGrouped)
-      .navigationTitle("TwinsKaraoke")
-      .navigationBarTitleDisplayMode(.large)
+      .scrollDismissesKeyboard(.interactively)
+      .background(Color(.systemGroupedBackground).ignoresSafeArea())
+      .navigationBarTitleDisplayMode(.inline)
       .toolbar {
         ToolbarItem(placement: .cancellationAction) {
           Button("Cancel") { dismiss() }
@@ -275,6 +204,174 @@ private struct LoginSheet: View {
         if isLoggedIn { dismiss() }
       }
     }
+  }
+  private var header: some View {
+    VStack(spacing: 14) {
+      appLogo
+        .frame(width: 88, height: 88)
+        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .shadow(color: Color.black.opacity(0.18), radius: 16, y: 8)
+      VStack(spacing: 6) {
+        Text("Sign in to Twinskaraoke")
+          .font(.system(size: 26, weight: .bold))
+          .multilineTextAlignment(.center)
+        Text("Access your library, favorites, and playlists across devices.")
+          .font(.subheadline)
+          .foregroundStyle(.secondary)
+          .multilineTextAlignment(.center)
+          .fixedSize(horizontal: false, vertical: true)
+      }
+    }
+    .padding(.bottom, 4)
+  }
+  @ViewBuilder
+  private var appLogo: some View {
+    if let uiImage = UIImage(named: "LaunchScreen") {
+      Image(uiImage: uiImage)
+        .resizable()
+        .aspectRatio(contentMode: .fill)
+    } else {
+      ZStack {
+        RoundedRectangle(cornerRadius: 22, style: .continuous)
+          .fill(
+            LinearGradient(
+              colors: [Color(hex: "7C5CFC"), Color(hex: "B47BFF")],
+              startPoint: .topLeading, endPoint: .bottomTrailing
+            )
+          )
+        Image(systemName: "music.mic")
+          .font(.system(size: 40, weight: .semibold))
+          .foregroundStyle(.white)
+      }
+    }
+  }
+  private var credentialsCard: some View {
+    VStack(spacing: 0) {
+      HStack(spacing: 12) {
+        Image(systemName: "person.fill")
+          .font(.system(size: 15, weight: .semibold))
+          .foregroundStyle(.secondary)
+          .frame(width: 22)
+        TextField("Username", text: $username)
+          .textInputAutocapitalization(.never)
+          .autocorrectionDisabled()
+          .focused($focus, equals: .username)
+          .submitLabel(.next)
+          .onSubmit { focus = .password }
+      }
+      .padding(.horizontal, 16)
+      .frame(height: 52)
+      Divider().padding(.leading, 50)
+      HStack(spacing: 12) {
+        Image(systemName: "lock.fill")
+          .font(.system(size: 15, weight: .semibold))
+          .foregroundStyle(.secondary)
+          .frame(width: 22)
+        Group {
+          if showPassword {
+            TextField("Password", text: $password)
+          } else {
+            SecureField("Password", text: $password)
+          }
+        }
+        .textInputAutocapitalization(.never)
+        .autocorrectionDisabled()
+        .focused($focus, equals: .password)
+        .submitLabel(.go)
+        .onSubmit { signIn() }
+        Button {
+          showPassword.toggle()
+        } label: {
+          Image(systemName: showPassword ? "eye.slash.fill" : "eye.fill")
+            .font(.system(size: 15, weight: .medium))
+            .foregroundStyle(.secondary)
+        }
+        .buttonStyle(.plain)
+      }
+      .padding(.horizontal, 16)
+      .frame(height: 52)
+    }
+    .background(
+      RoundedRectangle(cornerRadius: 14, style: .continuous)
+        .fill(Color(.secondarySystemGroupedBackground))
+    )
+  }
+  private func errorBanner(_ message: String) -> some View {
+    HStack(spacing: 10) {
+      Image(systemName: "exclamationmark.circle.fill")
+        .foregroundStyle(.red)
+      Text(message)
+        .font(.footnote)
+        .foregroundStyle(.red)
+        .fixedSize(horizontal: false, vertical: true)
+      Spacer(minLength: 0)
+    }
+    .padding(.horizontal, 14)
+    .padding(.vertical, 10)
+    .background(
+      RoundedRectangle(cornerRadius: 12, style: .continuous)
+        .fill(Color.red.opacity(0.10))
+    )
+  }
+  private var signInButton: some View {
+    Button(action: signIn) {
+      ZStack {
+        if auth.isLoading {
+          LoadingIndicator(size: 22)
+        } else {
+          Text("Sign In")
+            .font(.system(size: 17, weight: .semibold))
+            .foregroundStyle(.white)
+        }
+      }
+      .frame(maxWidth: .infinity)
+      .frame(height: 50)
+      .background(
+        LinearGradient(
+          colors: [Color(hex: "7C5CFC"), Color(hex: "B47BFF")],
+          startPoint: .leading, endPoint: .trailing
+        )
+      )
+      .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+      .opacity(canSubmit ? 1 : 0.5)
+    }
+    .disabled(!canSubmit)
+    .buttonStyle(.plain)
+  }
+  private var divider: some View {
+    HStack(spacing: 12) {
+      Rectangle().fill(Color(.separator)).frame(height: 0.5)
+      Text("OR")
+        .font(.system(size: 12, weight: .semibold))
+        .foregroundStyle(.secondary)
+      Rectangle().fill(Color(.separator)).frame(height: 0.5)
+    }
+  }
+  private var discordButton: some View {
+    Button {
+      Task { await auth.loginWithDiscord() }
+    } label: {
+      HStack(spacing: 10) {
+        DiscordIcon(size: 20, color: .white)
+        Text("Continue with Discord")
+          .font(.system(size: 17, weight: .semibold))
+          .foregroundStyle(.white)
+      }
+      .frame(maxWidth: .infinity)
+      .frame(height: 50)
+      .background(Color(hex: "5865F2"))
+      .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+    }
+    .disabled(auth.isLoading)
+    .buttonStyle(.plain)
+  }
+  private var footer: some View {
+    Text("By continuing, you agree to Twinskaraoke's Terms of Service and Privacy Policy.")
+      .font(.caption2)
+      .foregroundStyle(.secondary)
+      .multilineTextAlignment(.center)
+      .padding(.horizontal, 8)
+      .padding(.top, 4)
   }
   private func signIn() {
     focus = nil
