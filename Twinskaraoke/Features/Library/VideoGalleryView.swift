@@ -218,8 +218,8 @@ private struct VideoGalleryCell: View {
         Text(video.songTitle ?? video.name)
           .font(.system(size: 14, weight: .semibold))
           .foregroundColor(.primary)
-          .lineLimit(2)
-          .multilineTextAlignment(.leading)
+          .lineLimit(1)
+          .truncationMode(.tail)
         if let creator = video.createdBy, !creator.isEmpty {
           Text(creator)
             .font(.system(size: 12))

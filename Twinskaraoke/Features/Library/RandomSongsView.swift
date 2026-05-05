@@ -52,13 +52,9 @@ struct RandomSongsView: View {
             }
           }
         } else if viewModel.isLoading {
-          VStack(spacing: 0) {
-            ForEach(0..<8, id: \.self) { _ in
-              SongRowSkeleton(size: .regular)
-                .padding(.horizontal)
-              Divider().padding(.leading, 76)
-            }
-          }
+          LoadingIndicator(size: 48)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 40)
         }
       }
       .padding(.top, 12)
@@ -81,29 +77,12 @@ struct RandomSongsView: View {
   }
   @ViewBuilder
   private var artworkMosaic: some View {
-    let arts = Array(viewModel.songs.prefix(4).compactMap { $0.imageURL })
+    let firstArt = viewModel.songs.compactMap { $0.imageURL }.first
     ZStack {
-      if arts.count >= 4 {
-        LazyVGrid(
-          columns: [GridItem(.flexible(), spacing: 0), GridItem(.flexible(), spacing: 0)], spacing: 0
-        ) {
-          ForEach(0..<4, id: \.self) { i in
-            LoadingImage(url: arts[i], cornerRadius: 0, showsLoading: false)
-              .aspectRatio(1, contentMode: .fill)
-          }
-        }
-      } else if let url = arts.first {
+      if let url = firstArt {
         LoadingImage(url: url, cornerRadius: 0, showsLoading: false)
       } else {
-        LinearGradient(
-          colors: [Color.appAccent.opacity(0.85), Color.purple.opacity(0.85)],
-          startPoint: .topLeading, endPoint: .bottomTrailing
-        )
-        .overlay(
-          Image(systemName: "shuffle")
-            .font(.system(size: 64, weight: .medium))
-            .foregroundColor(.white.opacity(0.85))
-        )
+        Color(.systemGray5)
       }
       if viewModel.isLoading && viewModel.songs.isEmpty {
         Color.black.opacity(0.15)

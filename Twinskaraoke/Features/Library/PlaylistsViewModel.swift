@@ -14,6 +14,25 @@ class PlaylistsViewModel: ObservableObject {
       songListDTOs: favoriteSongs
     )
   }
+  /// Server playlists merged with locally saved ones, with the synthesized
+  /// Favorites pseudo-playlist pinned first. Server entries take precedence
+  /// when an ID exists in both lists.
+  @MainActor func allPlaylists(saved: [Playlist]) -> [Playlist] {
+    let serverIDs = Set(playlists.map { $0.id })
+    let localOnly = saved.filter { !serverIDs.contains($0.id) }
+    return [favoritesPlaylist] + playlists + localOnly
+  }
+  /// Playlists sorted by most recently added date. Favorites is pinned first
+  /// only when it has at least one song.
+  @MainActor func recentlyAddedPlaylists(saved: [Playlist]) -> [Playlist] {
+    let serverIDs = Set(playlists.map { $0.id })
+    let localOnly = saved.filter { !serverIDs.contains($0.id) }
+    let combined = (playlists + localOnly).sorted { lhs, rhs in
+      RecentlyAddedTracker.shared.date(for: lhs.id)
+        > RecentlyAddedTracker.shared.date(for: rhs.id)
+    }
+    return favoriteSongs.isEmpty ? combined : [favoritesPlaylist] + combined
+  }
   func fetchPlaylists() {
     guard
       let url = URL(
@@ -28,6 +47,7 @@ class PlaylistsViewModel: ObservableObject {
       if let data, let decoded = try? JSONDecoder().decode([Playlist].self, from: data) {
         DispatchQueue.main.async {
           self?.playlists = decoded
+          RecentlyAddedTracker.shared.registerIfNew(decoded.map { $0.id })
           self?.isLoading = false
         }
       } else {

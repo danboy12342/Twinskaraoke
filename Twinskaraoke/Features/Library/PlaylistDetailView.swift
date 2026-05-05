@@ -35,13 +35,9 @@ struct PlaylistDetailView: View {
               }
             }
           } else if loader.isLoading {
-            VStack(spacing: 0) {
-              ForEach(0..<8, id: \.self) { _ in
-                SongRowSkeleton(size: .regular)
-                  .padding(.horizontal)
-                Divider().padding(.leading, 76)
-              }
-            }
+            LoadingIndicator(size: 48)
+              .frame(maxWidth: .infinity)
+              .padding(.vertical, 40)
           }
         }
         .padding(.bottom, 16)
@@ -62,7 +58,7 @@ struct PlaylistDetailView: View {
     .toolbarBackground(scrollOffset < -180 ? .visible : .hidden, for: .navigationBar)
     .toolbar {
       ToolbarItem(placement: .topBarTrailing) {
-        PlaylistMoreMenu(songs: songs)
+        PlaylistMoreMenu(playlist: playlist, songs: songs)
       }
     }
     .animation(.easeInOut(duration: 0.2), value: scrollOffset < -180)
@@ -81,7 +77,7 @@ struct PlaylistDetailView: View {
     let yOffset = scrollOffset > 0 ? -scrollOffset / 2 : 0
     Group {
       if playlist.isFavorites {
-        favoritesMosaic
+        FavoritesArtworkTile()
       } else {
         LoadingImage(url: playlist.imageURL, cornerRadius: 14)
       }
@@ -94,39 +90,6 @@ struct PlaylistDetailView: View {
     .frame(width: width)
     .offset(y: yOffset)
     .padding(.top, 12)
-  }
-  @ViewBuilder
-  private var favoritesMosaic: some View {
-    let songs: [Song] = loader.songs ?? playlist.songListDTOs ?? []
-    let arts = Array(songs.prefix(4).compactMap { $0.imageURL })
-    ZStack {
-      if arts.count >= 4 {
-        LazyVGrid(
-          columns: [GridItem(.flexible(), spacing: 0), GridItem(.flexible(), spacing: 0)], spacing: 0
-        ) {
-          ForEach(0..<4, id: \.self) { i in
-            LoadingImage(url: arts[i], cornerRadius: 0, showsLoading: false)
-              .aspectRatio(1, contentMode: .fill)
-          }
-        }
-      } else if let url = arts.first {
-        LoadingImage(url: url, cornerRadius: 0, showsLoading: false)
-      } else {
-        LinearGradient(
-          colors: [Color.appAccent.opacity(0.85), Color.purple.opacity(0.85)],
-          startPoint: .topLeading, endPoint: .bottomTrailing
-        )
-        .overlay(
-          Image(systemName: "star.fill")
-            .font(.system(size: 64, weight: .medium))
-            .foregroundColor(.white.opacity(0.85))
-        )
-      }
-      if loader.isLoading && songs.isEmpty {
-        Color.black.opacity(0.15)
-        LoadingIndicator(size: 56)
-      }
-    }
   }
   @ViewBuilder
   private func actionButtons(songs: [Song]) -> some View {
@@ -164,8 +127,10 @@ struct PlaylistDetailView: View {
 }
 
 private struct PlaylistMoreMenu: View {
+  let playlist: Playlist
   let songs: [Song]
   @StateObject private var downloads = DownloadManager.shared
+  @ObservedObject private var savedStore: SavedPlaylistsStore = .shared
   private var pendingCount: Int {
     songs.filter { !downloads.isDownloaded($0.id) && !downloads.isDownloading($0.id) }.count
   }
@@ -175,8 +140,21 @@ private struct PlaylistMoreMenu: View {
   private var allDownloaded: Bool {
     !songs.isEmpty && pendingCount == 0 && inFlightCount == 0
   }
+  private var canSaveToLibrary: Bool { !playlist.isFavorites }
+  private var isSaved: Bool { savedStore.isSaved(playlist) }
   var body: some View {
     Menu {
+      if canSaveToLibrary {
+        Button {
+          savedStore.toggle(playlist)
+        } label: {
+          if isSaved {
+            Label("Remove from Library", systemImage: "checkmark.circle.fill")
+          } else {
+            Label("Add to Library", systemImage: "plus.circle")
+          }
+        }
+      }
       if inFlightCount > 0 {
         Label("Downloading \(inFlightCount)…", systemImage: "arrow.down.circle")
       } else if allDownloaded {

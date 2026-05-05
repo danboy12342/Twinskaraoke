@@ -6,11 +6,17 @@ class HomeViewModel: ObservableObject {
   @Published var suggestions: [Song] = []
   @Published var recentPlaylists: [Playlist] = []
   @Published var isLoading = false
+  @Published var isLoadingMoreTopPicks = false
+  @Published var canLoadMoreTopPicks = true
   private var hasLoaded = false
+  private var topPicksPage = 0
+  private let topPicksPageSize = 12
   func fetchHomeData(force: Bool = false) {
     if hasLoaded && !force { return }
     hasLoaded = true
     isLoading = true
+    topPicksPage = 0
+    canLoadMoreTopPicks = true
     let group = DispatchGroup()
     group.enter()
     fetchData(urlString: "https://api.neurokaraoke.com/api/explore/trendings?days=7&take=20") {
@@ -25,14 +31,44 @@ class HomeViewModel: ObservableObject {
       group.leave()
     }
     group.enter()
-    fetchData(
-      urlString:
-        "https://api.neurokaraoke.com/api/playlists?startIndex=0&pageSize=12&search=&sortBy=&sortDescending=True&isSetlist=True&year=0"
-    ) { [weak self] (response: [Playlist]?) in
-      if let response { DispatchQueue.main.async { self?.recentPlaylists = response } }
-      group.leave()
+    fetchData(urlString: topPicksURL(startIndex: 0)) { [weak self] (response: [Playlist]?) in
+      DispatchQueue.main.async {
+        if let response {
+          self?.recentPlaylists = response
+          self?.topPicksPage = 1
+          self?.canLoadMoreTopPicks = response.count == (self?.topPicksPageSize ?? 0)
+        }
+        group.leave()
+      }
     }
     group.notify(queue: .main) { [weak self] in self?.isLoading = false }
+  }
+  func loadMoreTopPicksIfNeeded(current: Playlist) {
+    guard let idx = recentPlaylists.firstIndex(where: { $0.id == current.id }) else { return }
+    if idx >= recentPlaylists.count - 3 && !isLoadingMoreTopPicks && canLoadMoreTopPicks {
+      loadMoreTopPicks()
+    }
+  }
+  private func loadMoreTopPicks() {
+    isLoadingMoreTopPicks = true
+    let startIndex = topPicksPage * topPicksPageSize
+    fetchData(urlString: topPicksURL(startIndex: startIndex)) { [weak self] (response: [Playlist]?) in
+      DispatchQueue.main.async {
+        guard let self = self else { return }
+        if let response, !response.isEmpty {
+          let existing = Set(self.recentPlaylists.map { $0.id })
+          self.recentPlaylists += response.filter { !existing.contains($0.id) }
+          self.topPicksPage += 1
+          self.canLoadMoreTopPicks = response.count == self.topPicksPageSize
+        } else {
+          self.canLoadMoreTopPicks = false
+        }
+        self.isLoadingMoreTopPicks = false
+      }
+    }
+  }
+  private func topPicksURL(startIndex: Int) -> String {
+    "https://api.neurokaraoke.com/api/playlists?startIndex=\(startIndex)&pageSize=\(topPicksPageSize)&search=&sortBy=&sortDescending=True&isSetlist=True&year=0"
   }
   private func fetchData<T: Codable>(urlString: String, completion: @escaping (T?) -> Void) {
     guard let url = URL(string: urlString) else {

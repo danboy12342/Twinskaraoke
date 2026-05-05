@@ -14,7 +14,12 @@ struct HomeView: View {
           } else {
             VStack(alignment: .leading, spacing: 28) {
               if !viewModel.recentPlaylists.isEmpty {
-                PlaylistCarousel(title: "Top Picks", playlists: viewModel.recentPlaylists)
+                PlaylistCarousel(
+                  title: "Top Picks",
+                  playlists: viewModel.recentPlaylists,
+                  isLoadingMore: viewModel.isLoadingMoreTopPicks,
+                  onAppearItem: { viewModel.loadMoreTopPicksIfNeeded(current: $0) }
+                )
               }
               if !recentlyPlayed.playlists.isEmpty {
                 PlaylistCarousel(title: "Recently Played", playlists: recentlyPlayed.playlists)
@@ -51,6 +56,8 @@ struct HomeView: View {
 struct PlaylistCarousel: View {
   let title: String
   let playlists: [Playlist]
+  var isLoadingMore: Bool = false
+  var onAppearItem: ((Playlist) -> Void)? = nil
   var body: some View {
     VStack(alignment: .leading, spacing: 12) {
       NavigationLink(destination: PlaylistListView(title: title, playlists: playlists)) {
@@ -72,15 +79,9 @@ struct PlaylistCarousel: View {
           ForEach(playlists) { playlist in
             NavigationLink(destination: PlaylistDetailView(playlist: playlist)) {
               VStack(alignment: .leading, spacing: 6) {
-                Group {
-                  if playlist.isFavorites {
-                    FavoritesArtworkTile()
-                  } else {
-                    LoadingImage(url: playlist.imageURL, cornerRadius: 10)
-                  }
-                }
-                .frame(width: 170, height: 170)
-                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                PlaylistArtwork(playlist: playlist, cornerRadius: 10)
+                  .frame(width: 170, height: 170)
+                  .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
                 Text(playlist.name)
                   .font(.system(size: 15, weight: .semibold))
                   .foregroundColor(.primary)
@@ -93,6 +94,11 @@ struct PlaylistCarousel: View {
               .frame(width: 170)
             }
             .buttonStyle(PressableButtonStyle())
+            .onAppear { onAppearItem?(playlist) }
+          }
+          if isLoadingMore {
+            LoadingIndicator(size: 32)
+              .frame(width: 60, height: 170)
           }
         }
         .padding(.horizontal)
