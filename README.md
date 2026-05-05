@@ -52,7 +52,7 @@ To install the app on your iPhone or iPad, you must use a sideloader or build fr
 
 ## Install
 
-install using sideloading tools like [Sideloadly](https://sideloadly.io/) or[AltStore](https://altstore.io/).
+install using sideloading tools like [Sideloadly](https://sideloadly.io/) or [AltStore](https://altstore.io/).
 you will need a free Apple ID.
 
 ### Step 1: Download the App
