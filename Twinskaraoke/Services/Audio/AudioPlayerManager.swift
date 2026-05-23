@@ -31,11 +31,14 @@ private final class AudioDownloadSession: NSObject, URLSessionDataDelegate {
   private let songID: String
   private let partialURL: URL
   private let finalURL: URL
+  private let minimumPlayableBytes = 512 * 1024
   private var remoteURL: URL?
   private var fileHandle: FileHandle?
   private var task: URLSessionDataTask?
   private var session: URLSession?
+  private var hasReportedPlayableFallback = false
   var onCompletion: ((URL?) -> Void)?
+  var onPlayableFallbackReady: ((URL) -> Void)?
   init(songID: String) {
     self.songID = songID
     let songFiles = AudioCacheStore.files(for: songID)
@@ -48,6 +51,7 @@ private final class AudioDownloadSession: NSObject, URLSessionDataDelegate {
     try? FileManager.default.removeItem(at: partialURL)
     FileManager.default.createFile(atPath: partialURL.path, contents: nil)
     self.fileHandle = try? FileHandle(forWritingTo: partialURL)
+    AudioCacheStore.writeMainSourceURL(remoteURL, for: songID)
     let configuration = URLSessionConfiguration.ephemeral
     configuration.requestCachePolicy = .reloadIgnoringLocalCacheData
     configuration.urlCache = nil
@@ -64,6 +68,19 @@ private final class AudioDownloadSession: NSObject, URLSessionDataDelegate {
     fileHandle?.closeFile()
     try? FileManager.default.removeItem(at: partialURL)
   }
+  private func reportPlayableFallbackIfPossible() {
+    guard !hasReportedPlayableFallback else { return }
+    guard
+      let fileSize = try? partialURL.resourceValues(forKeys: [.fileSizeKey]).fileSize,
+      fileSize >= minimumPlayableBytes
+    else { return }
+    guard AudioKitPlayback.hasValidAudioHeader(at: partialURL) else { return }
+    hasReportedPlayableFallback = true
+    let fallbackURL = partialURL
+    DispatchQueue.main.async { [weak self] in
+      self?.onPlayableFallbackReady?(fallbackURL)
+    }
+  }
   func urlSession(
     _ session: URLSession, dataTask: URLSessionDataTask,
     didReceive response: URLResponse,
@@ -73,6 +90,7 @@ private final class AudioDownloadSession: NSObject, URLSessionDataDelegate {
   }
   func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, didReceive data: Data) {
     fileHandle?.write(data)
+    reportPlayableFallbackIfPossible()
   }
   func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
     fileHandle?.closeFile()
@@ -368,6 +386,7 @@ class AudioPlayerManager: ObservableObject {
   private var radioTimeObserver: (player: AVPlayer, token: Any)?
   private var pollTimer: Timer?
   private var streamFadeTimer: Timer?
+  private var streamStartedAt: Date?
 
   private var _suppressModeSwitch = false
   private var originalQueue: [Song] = []
@@ -948,31 +967,7 @@ class AudioPlayerManager: ObservableObject {
       return
     }
     guard let remoteURL = song.audioURL else { return }
-    currentPlaybackURL = remoteURL
-    configureAudioSessionCategory()
-    activateAudioSession()
-    let item = AVPlayerItem(url: remoteURL)
-    let player = AVPlayer(playerItem: item)
-    if #available(iOS 15.0, *) {
-      player.audiovisualBackgroundPlaybackPolicy = .continuesIfPossible
-    }
-    player.automaticallyWaitsToMinimizeStalling = true
-    player.volume = 1.0
-    streamPlayer = player
-    streamEndObserver = NotificationCenter.default.addObserver(
-      forName: .AVPlayerItemDidPlayToEndTime, object: item, queue: .main
-    ) { [weak self] _ in
-      guard let self, self.isStreamMode, !self.isRadioMode else { return }
-      guard self.isPlaying else { return }
-      guard !self.suppressTransitionAfterSeek else { return }
-      guard !self.isPlaybackEndedCallbackSuppressed else { return }
-      self.playNextOrRandom()
-    }
-    NotificationCenter.default.post(name: MediaPlaybackCoordinator.audioWillPlay, object: nil)
-    player.play()
-    isPlaying = true
-    isBuffering = false
-    updateNowPlayingInfo(reloadArtwork: true)
+    startStreamPlayback(url: remoteURL, songID: song.id)
     if aiEnabled {
       if anyAIEffectActive {
         applyMLSeparationIfNeeded()
@@ -981,8 +976,14 @@ class AudioPlayerManager: ObservableObject {
       }
     }
     let songID = song.id
+    let songFiles = AudioCacheStore.files(for: songID)
     let session = AudioDownloadSession(songID: songID)
     downloadSession = session
+    session.onPlayableFallbackReady = { [weak self] fallbackURL in
+      guard let self else { return }
+      guard let currentSong = self.currentSong, currentSong.id == songID else { return }
+      self.switchSilentStreamToLocalFallback(fallbackURL, for: currentSong)
+    }
     session.onCompletion = { [weak self] url in
       guard let self else { return }
       self.downloadSession = nil
@@ -995,6 +996,10 @@ class AudioPlayerManager: ObservableObject {
           for: songID,
           expectedRemoteURL: currentSong.audioURL)
       else { return }
+      if self.currentPlaybackURL?.path == songFiles.mainPartial.path {
+        let resumeAt = max(0, self.streamPlayer?.currentTime().seconds ?? 0)
+        self.startStreamPlayback(url: playableURL, songID: songID, startAt: resumeAt)
+      }
       self.currentPlaybackURL = playableURL
       self.prepareBackgroundStemPlaybackIfPossible(for: currentSong)
       if self.anyAIEffectActive {
@@ -1042,6 +1047,7 @@ class AudioPlayerManager: ObservableObject {
     separationGeneration &+= 1
     VocalSeparator.shared.cancel()
     VocalSeparator.shared.cleanupRealtimeTemp()
+    streamStartedAt = nil
     currentPlaybackURL = url
     configureAudioSessionCategory()
     activateAudioSession()
@@ -1309,6 +1315,54 @@ class AudioPlayerManager: ObservableObject {
     radioPlayer = nil
   }
 
+  private func startStreamPlayback(url: URL, songID: String, startAt: TimeInterval = 0) {
+    stopStreamPlayer()
+    currentPlaybackURL = url
+    configureAudioSessionCategory()
+    activateAudioSession()
+    let item = AVPlayerItem(url: url)
+    let player = AVPlayer(playerItem: item)
+    if #available(iOS 15.0, *) {
+      player.audiovisualBackgroundPlaybackPolicy = .continuesIfPossible
+    }
+    player.automaticallyWaitsToMinimizeStalling = true
+    player.volume = 1.0
+    streamPlayer = player
+    streamStartedAt = Date()
+    streamEndObserver = NotificationCenter.default.addObserver(
+      forName: .AVPlayerItemDidPlayToEndTime, object: item, queue: .main
+    ) { [weak self] _ in
+      guard let self, self.isStreamMode, !self.isRadioMode else { return }
+      guard self.isPlaying else { return }
+      guard !self.suppressTransitionAfterSeek else { return }
+      guard !self.isPlaybackEndedCallbackSuppressed else { return }
+      self.playNextOrRandom()
+    }
+    NotificationCenter.default.post(name: MediaPlaybackCoordinator.audioWillPlay, object: nil)
+    if startAt > 0 {
+      let target = CMTime(seconds: startAt, preferredTimescale: 600)
+      player.seek(to: target, toleranceBefore: .zero, toleranceAfter: .zero)
+    }
+    player.play()
+    isPlaying = true
+    isBuffering = false
+    updateNowPlayingInfo(reloadArtwork: true)
+  }
+
+  private func switchSilentStreamToLocalFallback(_ fallbackURL: URL, for song: Song) {
+    guard isStreamMode, !isRadioMode else { return }
+    guard currentSong?.id == song.id else { return }
+    guard let startedAt = streamStartedAt, Date().timeIntervalSince(startedAt) >= 3 else { return }
+    let streamTime = streamPlayer?.currentTime().seconds ?? .nan
+    let hasRemoteProgress = streamTime.isFinite && streamTime > 0.25
+    let isWaitingToPlay = streamPlayer?.timeControlStatus == .waitingToPlayAtSpecifiedRate
+    guard isWaitingToPlay || !hasRemoteProgress else { return }
+    DebugLogger.log(
+      "Switching stalled stream to local fallback for \(song.id)",
+      category: .playback)
+    startStreamPlayback(url: fallbackURL, songID: song.id, startAt: max(0, hasRemoteProgress ? streamTime : 0))
+  }
+
   private func stopStreamPlayer() {
     if let observer = streamEndObserver {
       NotificationCenter.default.removeObserver(observer)
@@ -1319,6 +1373,7 @@ class AudioPlayerManager: ObservableObject {
     streamPlayer?.pause()
     streamPlayer?.replaceCurrentItem(with: nil)
     streamPlayer = nil
+    streamStartedAt = nil
   }
 
   private func fadeOutStreamPlayer(duration: TimeInterval) {
