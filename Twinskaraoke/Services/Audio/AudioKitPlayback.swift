@@ -1101,11 +1101,17 @@ final class AudioKitPlayback {
     from preparedMedia: LoadedMedia,
     sourceURL: URL
   ) throws -> LoadedMedia {
-    if preparedMedia.1 != nil {
+    if let preparedBuffer = preparedMedia.1 {
+      if let clonedBuffer = cloneBuffer(preparedBuffer) {
+        DebugLogger.log(
+          "Crossfade handoff cloning prepared buffer for \(sourceURL.lastPathComponent)",
+          category: .playback)
+        return (nil, clonedBuffer)
+      }
       DebugLogger.log(
-        "Crossfade handoff reusing prepared buffer for \(sourceURL.lastPathComponent)",
+        "Crossfade handoff reloading unclonable buffer for \(sourceURL.lastPathComponent)",
         category: .playback)
-      return preparedMedia
+      return try loadMedia(url: sourceURL, intent: .immediatePlayback)
     }
     // AVAudioFile-backed preload state is consumed by the crossfade player.
     // Reload a fresh media source for the new main player to avoid silent handoff at EOF.
@@ -1113,6 +1119,23 @@ final class AudioKitPlayback {
       "Crossfade handoff reloading file-backed media for \(sourceURL.lastPathComponent)",
       category: .playback)
     return try loadMedia(url: sourceURL, intent: .immediatePlayback)
+  }
+
+  private static func cloneBuffer(_ buffer: AVAudioPCMBuffer) -> AVAudioPCMBuffer? {
+    guard
+      buffer.format.commonFormat == .pcmFormatFloat32,
+      !buffer.format.isInterleaved,
+      let sourceChannels = buffer.floatChannelData,
+      let copy = AVAudioPCMBuffer(pcmFormat: buffer.format, frameCapacity: buffer.frameCapacity),
+      let destinationChannels = copy.floatChannelData
+    else { return nil }
+    copy.frameLength = buffer.frameLength
+    let channelCount = Int(buffer.format.channelCount)
+    let byteCount = Int(buffer.frameLength) * MemoryLayout<Float>.size
+    for channel in 0..<channelCount {
+      memcpy(destinationChannels[channel], sourceChannels[channel], byteCount)
+    }
+    return copy
   }
 
   private static func describeMedia(_ media: LoadedMedia?) -> String {
