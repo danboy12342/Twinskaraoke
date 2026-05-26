@@ -24,6 +24,13 @@ struct GalleryArt: Codable, Identifiable, Equatable {
     guard let path = absolutePath else { return nil }
     return URL(string: StorageHost.images + path + "/quality=95")
   }
+  var fullHDImageURL: URL? {
+    if let identifier = cloudflareId {
+      return URL(string: "\(StorageHost.images)/\(identifier)/w=1920,q=95,fit=contain")
+    }
+    guard let path = absolutePath else { return imageURL }
+    return URL(string: StorageHost.images + path + "/w=1920,quality=95")
+  }
   var blurPreviewURL: URL? {
     guard let path = absolutePath else { return nil }
     return URL(string: StorageHost.images + path + "/width=20,quality=30,blur=30")

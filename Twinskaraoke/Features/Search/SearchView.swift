@@ -84,13 +84,14 @@ struct SearchView: View {
 private struct BrowseCategoriesView: View {
   @StateObject private var genresVM = GenresViewModel()
   @StateObject private var topChartVM = TopChartViewModel()
+  @StateObject private var publicPlaylistsVM = PublicPlaylistsViewModel()
   private let topPicks: [(String, [Color])] = [
     (
       "Twinskaraoke Top 100",
       [Color(red: 0.96, green: 0.30, blue: 0.45), Color(red: 0.55, green: 0.10, blue: 0.30)]
     ),
     (
-      "Charts",
+      "Public Playlists",
       [Color(red: 0.20, green: 0.55, blue: 0.95), Color(red: 0.10, green: 0.20, blue: 0.55)]
     ),
     (
@@ -195,10 +196,12 @@ private struct BrowseCategoriesView: View {
     .refreshable {
       genresVM.loadIfNeeded()
       topChartVM.loadIfNeeded()
+      publicPlaylistsVM.loadIfNeeded()
     }
     .onAppear {
       genresVM.loadIfNeeded()
       topChartVM.loadIfNeeded()
+      publicPlaylistsVM.loadIfNeeded()
     }
   }
   private var topPicksSection: some View {
@@ -218,6 +221,23 @@ private struct BrowseCategoriesView: View {
                 title: item.0,
                 gradient: item.1,
                 artworkURL: topChartVM.songs.first?.imageURL
+              )
+            }
+            .buttonStyle(PressableButtonStyle())
+          } else if item.0 == "Public Playlists" {
+            NavigationLink(
+              destination: PlaylistListView(
+                title: "Public Playlists",
+                playlists: publicPlaylistsVM.playlists,
+                apiURL: { startIndex, pageSize in
+                  publicPlaylistsVM.urlForList(startIndex: startIndex, pageSize: pageSize)
+                }
+              )
+            ) {
+              CategoryTile(
+                title: item.0,
+                gradient: item.1,
+                artworkURL: publicPlaylistsVM.playlists.first?.imageURL
               )
             }
             .buttonStyle(PressableButtonStyle())

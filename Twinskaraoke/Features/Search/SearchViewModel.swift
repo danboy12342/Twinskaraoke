@@ -29,6 +29,66 @@ nonisolated private struct GenreDetail: Decodable, Sendable {
   let songs: [Song]?
 }
 
+@MainActor
+final class PublicPlaylistsViewModel: ObservableObject {
+  @Published var playlists: [Playlist] = []
+  @Published var isLoadingMore = false
+  private var canLoadMore = true
+  private var hasLoaded = false
+  private let pageSize = 25
+
+  func loadIfNeeded() {
+    guard !hasLoaded else { return }
+    hasLoaded = true
+    fetchPage(startIndex: 0, replace: true)
+  }
+
+  func loadMoreIfNeeded(current: Playlist) {
+    guard let idx = playlists.firstIndex(where: { $0.id == current.id }) else { return }
+    if idx >= playlists.count - 4 && !isLoadingMore && canLoadMore {
+      fetchPage(startIndex: playlists.count, replace: false)
+    }
+  }
+
+  func urlForList(startIndex: Int, pageSize: Int) -> String {
+    "\(StorageHost.api)/api/playlist/public?startIndex=\(startIndex)&pageSize=\(pageSize)&search=&sortBy=UpdatedAt&sortDescending=True"
+  }
+
+  private func fetchPage(startIndex: Int, replace: Bool) {
+    let urlString = urlForList(startIndex: startIndex, pageSize: pageSize)
+    guard let url = URL(string: urlString) else { return }
+    if !replace { isLoadingMore = true }
+    var request = URLRequest(url: url)
+    GuestIdentity.applyIfNeeded(to: &request)
+    URLSession.shared.dataTask(with: request) { [weak self] data, _, _ in
+      Task { @MainActor [weak self] in
+        guard let self else { return }
+        let items = Self.decode(data: data)
+        if replace {
+          self.playlists = items
+        } else {
+          let existing = Set(self.playlists.map { $0.id })
+          self.playlists += items.filter { !existing.contains($0.id) }
+        }
+        self.canLoadMore = items.count >= self.pageSize
+        self.isLoadingMore = false
+      }
+    }.resume()
+  }
+
+  private static func decode(data: Data?) -> [Playlist] {
+    guard let data else { return [] }
+    let decoder = JSONDecoder()
+    if let items = (try? decoder.decode(LossyArray<PlaylistListItem>.self, from: data))?.elements {
+      return items.map { $0.asPlaylist() }
+    }
+    if let items = try? decoder.decode([PlaylistListItem].self, from: data) {
+      return items.map { $0.asPlaylist() }
+    }
+    return []
+  }
+}
+
 nonisolated private enum TopChartSection: Sendable {
   case songs
   case weeklyTrending
@@ -154,10 +214,7 @@ final class GenresViewModel: ObservableObject {
     }
   }
 
-  private static let neuroFallbackURL = URL(
-    string:
-      "\(StorageHost.images)/WxURxyML82UkE7gY-PiBKw/277232b2-e00e-426b-ffb8-bb8664a73600/quality=95"
-  )!
+  private static let neuroFallbackURL = FallbackArtProvider.shared.randomURL
 
   private func fetchDetail(for genre: GenreSummary) {
     if allSongs[genre.id] != nil { return }

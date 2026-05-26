@@ -57,10 +57,12 @@ struct FullScreenPlayerView: View {
     .fullScreenCover(isPresented: $showCoverArt) {
       if let song {
         let isEasterEgg = easterEggImageURL != nil
+        let hdURL = easterEggImageURL ?? song.fullHDImageURL ?? audioManager.displayImageURL(for: song)
+        let thumbURL = isEasterEgg ? nil : audioManager.displayImageURL(for: song)
         ZoomableImageViewer(
-          url: easterEggImageURL ?? audioManager.displayImageURL(for: song),
-          lowResURL: nil,
-          onSave: { saveCoverArt(url: easterEggImageURL ?? audioManager.displayImageURL(for: song)) },
+          url: hdURL,
+          lowResURL: thumbURL,
+          onSave: { saveCoverArt(url: hdURL) },
           title: isEasterEgg ? easterEggArtistName : coverArtArtistName,
           subtitle: isEasterEgg ? easterEggArtistLink : coverArtArtistLink
         )
@@ -417,6 +419,12 @@ struct FullScreenPlayerView: View {
   }
 
   private func fetchCoverArtArtist(songID: String) {
+    if let song = audioManager.currentSong, song.fallbackArtCredit != nil {
+      let fallback = FallbackArtProvider.shared.art(for: song.id)
+      coverArtArtistName = fallback.artistName
+      coverArtArtistLink = fallback.artistLink
+      return
+    }
     guard let url = URL(string: "\(StorageHost.api)/api/songs/\(songID)") else { return }
     var request = URLRequest(url: url)
     GuestIdentity.applyIfNeeded(to: &request)

@@ -41,10 +41,13 @@ struct LoadingImage: View {
   var showsLoading: Bool = true
   var lowResURL: URL? = nil
   var transparentBackground: Bool = false
+  var fullResolution: Bool = false
   @State private var fullLoaded: Bool = false
   var body: some View {
     GeometryReader { geo in
       let pixelSize = NSValue(cgSize: thumbnailPixelSize(for: geo.size))
+      let context: [SDWebImageContextOption: Any] = fullResolution
+        ? [:] : [.imageThumbnailPixelSize: pixelSize]
       ZStack {
         if !transparentBackground {
           Color(.systemGray5)
@@ -67,7 +70,7 @@ struct LoadingImage: View {
         WebImage(
           url: url,
           options: ImageCacheConfig.defaultOptions,
-          context: [.imageThumbnailPixelSize: pixelSize]
+          context: context
         ) { image in
           image
             .resizable()

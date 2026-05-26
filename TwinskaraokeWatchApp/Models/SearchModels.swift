@@ -25,7 +25,7 @@ struct SearchSongItem: Codable, Identifiable {
       id: id, title: title, duration: duration, absolutePath: absPath,
       coverArt: coverArt.map { SongMedia(absolutePath: $0.absolutePath) },
       coverArtists: coverArtists, originalArtists: originalArtists,
-      cloudflareId: cloudflareId)
+      cloudflareId: cloudflareId, userUploaded: nil)
   }
 }
 

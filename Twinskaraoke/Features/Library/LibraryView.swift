@@ -1,8 +1,91 @@
+import Combine
 import SwiftUI
 
 extension Playlist: Hashable {
   public static func == (lhs: Playlist, rhs: Playlist) -> Bool { lhs.id == rhs.id }
   public func hash(into hasher: inout Hasher) { hasher.combine(id) }
+}
+
+@MainActor
+final class PlaylistSongCountStore: ObservableObject {
+  static let shared = PlaylistSongCountStore()
+
+  @Published private var resolvedCounts: [String: Int] = [:]
+  private var loadingIDs: Set<String> = []
+
+  func displayedCount(for playlist: Playlist) -> Int? {
+    if let resolved = resolvedCounts[playlist.id], resolved > 0 {
+      return resolved
+    }
+    let embeddedCount = playlist.songListDTOs?.count ?? 0
+    if embeddedCount > 0 {
+      return max(playlist.songCount, embeddedCount)
+    }
+    return playlist.songCount > 0 ? playlist.songCount : nil
+  }
+
+  func loadIfNeeded(for playlist: Playlist) {
+    guard !playlist.isFavorites, !playlist.isPersonal else { return }
+    guard playlist.songCount == 0 else { return }
+    guard resolvedCounts[playlist.id] == nil else { return }
+    guard !loadingIDs.contains(playlist.id) else { return }
+    guard let url = URL(string: "\(StorageHost.api)/api/playlist/\(playlist.id)") else { return }
+
+    loadingIDs.insert(playlist.id)
+    var request = URLRequest(url: url)
+    if let token = UserDefaults.standard.string(forKey: "nk.token"), !token.isEmpty {
+      request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+    }
+    GuestIdentity.applyIfNeeded(to: &request)
+
+    URLSession.shared.dataTask(with: request) { [weak self] data, _, _ in
+      let count = Self.resolveCount(from: data)
+      DispatchQueue.main.async {
+        guard let self else { return }
+        self.loadingIDs.remove(playlist.id)
+        if let count, count > 0 {
+          self.resolvedCounts[playlist.id] = count
+        }
+      }
+    }.resume()
+  }
+
+  nonisolated private static func resolveCount(from data: Data?) -> Int? {
+    guard let data else { return nil }
+    let decoder = JSONDecoder()
+    if let playlist = try? decoder.decode(Playlist.self, from: data) {
+      return max(playlist.songCount, playlist.songListDTOs?.count ?? 0)
+    }
+    if let songs = SongPayloadDecoder.decodeSongs(from: data) {
+      return songs.count
+    }
+    return nil
+  }
+}
+
+struct PlaylistSongCountLabel: View {
+  let playlist: Playlist
+  var fallbackText: String? = nil
+
+  @ObservedObject private var countStore = PlaylistSongCountStore.shared
+
+  private var labelText: String? {
+    if let count = countStore.displayedCount(for: playlist) {
+      return "\(count) songs"
+    }
+    return fallbackText
+  }
+
+  var body: some View {
+    Group {
+      if let labelText {
+        Text(labelText)
+      }
+    }
+    .task(id: playlist.id) {
+      countStore.loadIfNeeded(for: playlist)
+    }
+  }
 }
 
 struct LibraryView: View {
@@ -131,7 +214,7 @@ struct PlaylistListRow: View {
         Text(playlist.name)
           .font(.system(size: 15, weight: .medium))
           .lineLimit(1)
-        Text("\(playlist.songCount) songs")
+        PlaylistSongCountLabel(playlist: playlist, fallbackText: "Playlist")
           .font(.system(size: 12))
           .foregroundColor(.secondary)
       }
@@ -225,15 +308,9 @@ struct PlaylistGridCell: View {
         .font(.system(size: 14, weight: .bold))
         .foregroundColor(.primary)
         .lineLimit(1)
-      if playlist.songCount > 0 {
-        Text("\(playlist.songCount) songs")
-          .font(.system(size: 12))
-          .foregroundColor(.secondary)
-      } else {
-        Text("Playlist")
-          .font(.system(size: 12))
-          .foregroundColor(.secondary)
-      }
+      PlaylistSongCountLabel(playlist: playlist, fallbackText: "Playlist")
+        .font(.system(size: 12))
+        .foregroundColor(.secondary)
     }
     .frame(maxWidth: .infinity, alignment: .leading)
   }
@@ -283,7 +360,7 @@ struct RecentlyAddedTile: View {
           .font(.system(size: 16, weight: .semibold))
           .foregroundColor(.primary)
           .lineLimit(1)
-        Text("\(playlist.songCount) songs")
+        PlaylistSongCountLabel(playlist: playlist, fallbackText: "Playlist")
           .font(.system(size: 14))
           .foregroundColor(.secondary)
           .lineLimit(1)
