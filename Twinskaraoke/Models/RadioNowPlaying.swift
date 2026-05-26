@@ -72,7 +72,8 @@ extension RadioNowPlaying.SongInfo {
       cloudflareID: nil,
       coverArt: nil,
       originalArtists: artist.map { [$0] },
-      coverArtists: nil
+      coverArtists: nil,
+      userUploaded: nil
     )
   }
 }

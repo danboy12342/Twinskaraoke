@@ -10,8 +10,7 @@ struct ArtDetailView: View {
     case failed(String)
   }
   private var fullResURL: URL? {
-    guard let path = art.absolutePath else { return art.imageURL }
-    return URL(string: StorageHost.images + path + "/quality=95")
+    art.fullHDImageURL ?? art.imageURL
   }
   var body: some View {
     ScrollView {
@@ -151,8 +150,8 @@ struct ZoomableImageViewer: View {
       Color.black.ignoresSafeArea()
       if let url {
         LoadingImage(
-          url: url, cornerRadius: 0, contentMode: .fit, showsLoading: false,
-          lowResURL: lowResURL, transparentBackground: true
+          url: url, cornerRadius: 0, contentMode: .fit, showsLoading: true,
+          lowResURL: lowResURL, transparentBackground: true, fullResolution: true
         )
         .scaleEffect(scale)
         .offset(offset)

@@ -80,7 +80,7 @@ struct PlaylistCarousel: View {
                   .font(AM.Font.tileTitle)
                   .foregroundColor(.primary)
                   .lineLimit(1)
-                Text("\(playlist.songCount) songs")
+                PlaylistSongCountLabel(playlist: playlist, fallbackText: "Playlist")
                   .font(AM.Font.tileCaption)
                   .foregroundColor(.secondary)
                   .lineLimit(1)
@@ -314,10 +314,7 @@ struct BrowseSongCollectionView: View {
       .frame(height: baseSize)
       .padding(.top, 8)
   }
-  private static let neuroFallbackURL = URL(
-    string:
-      "\(StorageHost.images)/WxURxyML82UkE7gY-PiBKw/277232b2-e00e-426b-ffb8-bb8664a73600/quality=95"
-  )!
+  private static let neuroFallbackURL = FallbackArtProvider.shared.randomURL
   @ViewBuilder
   private var heroArtwork: some View {
     let artURL = songs.first(where: { $0.hasOwnArtwork })?.imageURL ?? Self.neuroFallbackURL

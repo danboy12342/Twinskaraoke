@@ -40,10 +40,11 @@ struct UserPlaylist: Codable, Identifiable, Hashable {
         mediaArray = [Media(absolutePath: path)]
       }
     }
+    let effectiveCount = max(songCount, songListDTOs?.count ?? 0)
     var p = Playlist(
       id: id,
       name: name,
-      songCount: songCount,
+      songCount: effectiveCount,
       media: media.map { PlaylistMedia(cloudflareId: $0.cloudflareId, absolutePath: $0.absolutePath) },
       mosaicMedia: mediaArray,
       songListDTOs: songListDTOs

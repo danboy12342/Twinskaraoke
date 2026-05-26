@@ -7,7 +7,6 @@ struct PlaylistDetailView: View {
   @StateObject private var loader = PlaylistDetailViewModel()
   @ObservedObject private var favorites = FavoritesManager.shared
   @State private var scrollOffset: CGFloat = 0
-  @State private var showSongArtwork = true
   var body: some View {
     let songs: [Song] = loader.songs ?? playlist.songListDTOs ?? []
     GeometryReader { geo in
@@ -18,7 +17,7 @@ struct PlaylistDetailView: View {
             Text(playlist.name)
               .font(.title2.bold())
               .multilineTextAlignment(.center)
-            Text("\(playlist.songCount) songs")
+            Text("\(songs.isEmpty ? playlist.songCount : songs.count) songs")
               .font(.subheadline)
               .foregroundColor(.secondary)
           }
@@ -30,10 +29,10 @@ struct PlaylistDetailView: View {
                 Button {
                   audioManager.play(song: song, context: songs)
                 } label: {
-                  PlaylistRow(song: song, showsArtwork: showSongArtwork)
+                  PlaylistRow(song: song)
                 }
                 .buttonStyle(PressableButtonStyle())
-                Divider().padding(.leading, showSongArtwork ? 76 : 28)
+                Divider().padding(.leading, 76)
               }
             }
           } else if loader.isLoading {
@@ -62,17 +61,13 @@ struct PlaylistDetailView: View {
       ToolbarItem(placement: .topBarTrailing) {
         PlaylistMoreMenu(
           playlist: playlist,
-          songs: songs,
-          showSongArtwork: $showSongArtwork
+          songs: songs
         )
       }
     }
     .animation(.easeInOut(duration: 0.2), value: scrollOffset < -180)
     .refreshable { loader.reload(playlistID: playlist.id, fallback: playlist.songListDTOs) }
     .onAppear {
-      if loader.songs == nil {
-        showSongArtwork = PlaylistArtworkPreference.defaultValue(songCount: playlist.songCount)
-      }
       loader.reload(playlistID: playlist.id, fallback: playlist.songListDTOs)
       RecentlyPlayedStore.shared.record(playlist)
     }
@@ -146,7 +141,6 @@ struct PlaylistDetailView: View {
 private struct PlaylistMoreMenu: View {
   let playlist: Playlist
   let songs: [Song]
-  @Binding var showSongArtwork: Bool
   @StateObject private var downloads = DownloadManager.shared
   @ObservedObject private var savedStore: SavedPlaylistsStore = .shared
   private var pendingCount: Int {
@@ -162,9 +156,6 @@ private struct PlaylistMoreMenu: View {
   private var isSaved: Bool { savedStore.isSaved(playlist) }
   var body: some View {
     Menu {
-      Toggle(isOn: $showSongArtwork) {
-        Label(showSongArtwork ? "Hide Song Art" : "Show Song Art", systemImage: "photo")
-      }
       if canSaveToLibrary {
         Button {
           savedStore.toggle(playlist)
@@ -211,9 +202,8 @@ private struct ScrollOffsetKey: PreferenceKey {
 
 struct PlaylistRow: View {
   let song: Song
-  let showsArtwork: Bool
   var body: some View {
-    SongRow(song: song, size: .regular, showsArtwork: showsArtwork)
+    SongRow(song: song, size: .regular, showsArtwork: true)
       .padding(.horizontal)
       .padding(.vertical, 8)
   }
@@ -259,11 +249,5 @@ class PlaylistDetailViewModel: ObservableObject {
   }
   private static func decodeSongs(from data: Data?) -> [Song]? {
     SongPayloadDecoder.decodeSongs(from: data)
-  }
-}
-
-private enum PlaylistArtworkPreference {
-  static func defaultValue(songCount: Int) -> Bool {
-    songCount <= 200
   }
 }

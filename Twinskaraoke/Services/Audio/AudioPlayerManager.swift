@@ -135,6 +135,8 @@ class AudioPlayerManager: ObservableObject {
   @Published var volume: Double = 1.0
   @Published var isUserScrubbingVolume: Bool = false
   private var suppressTransitionAfterSeek = false
+  private var preferredStreamResumeSongID: String?
+  private var preferredStreamResumeTime: TimeInterval?
   private var deferredAIEffect: AudioEffect?
   @Published var routeIcon: String = "airplayaudio"
   @Published var routeName: String = ""
@@ -478,7 +480,20 @@ class AudioPlayerManager: ObservableObject {
     audioKit.onPlaybackError = { [weak self] error in
       guard let self else { return }
       DebugLogger.log("AudioKit playback error: \(error)", category: .playback)
+      let pendingTransitionSong: Song?
+      if case .crossfading(let plan) = self.transitionCoordinator.state {
+        pendingTransitionSong = plan.nextSong
+      } else {
+        pendingTransitionSong = nil
+      }
       self.cancelPendingTransitionWork()
+      if let pendingTransitionSong, !self.isRadioMode {
+        DebugLogger.log(
+          "Recovering from transition playback error with direct play(\(pendingTransitionSong.id))",
+          category: .playback)
+        self.play(song: pendingTransitionSong, resetTransitionVolume: true)
+        return
+      }
       self.isPlaying = false
       self.isBuffering = false
       self.updateNowPlayingInfo(reloadArtwork: false)
@@ -576,13 +591,50 @@ class AudioPlayerManager: ObservableObject {
     return ids
   }
 
+  private func setPreferredStreamResumeTime(_ seconds: TimeInterval, for songID: String?) {
+    guard let songID, seconds.isFinite else { return }
+    preferredStreamResumeSongID = songID
+    preferredStreamResumeTime = max(0, seconds)
+  }
+
+  private func clearPreferredStreamResumeTime() {
+    preferredStreamResumeSongID = nil
+    preferredStreamResumeTime = nil
+  }
+
+  private func preferredStreamResumeTime(for song: Song? = nil) -> TimeInterval? {
+    let songID = song?.id ?? currentSong?.id
+    guard preferredStreamResumeSongID == songID else { return nil }
+    return preferredStreamResumeTime
+  }
+
+  private func reconcilePreferredStreamResumeTime(
+    observedTime: TimeInterval,
+    for song: Song? = nil
+  ) {
+    guard let target = preferredStreamResumeTime(for: song) else { return }
+    guard observedTime.isFinite, observedTime >= 0 else { return }
+    if abs(observedTime - target) <= 2.0 {
+      clearPreferredStreamResumeTime()
+    }
+  }
+
   private func activePlaybackTime(for song: Song? = nil) -> TimeInterval {
     if isStreamMode {
+      let fallbackDuration = Double(song?.duration ?? currentSong?.duration ?? 0)
+      if let preferredResume = preferredStreamResumeTime(for: song) {
+        if fallbackDuration > 0 {
+          return min(max(0, preferredResume), fallbackDuration)
+        }
+        return max(0, preferredResume)
+      }
+      if suppressTransitionAfterSeek, fallbackDuration > 0 {
+        return min(max(0, progress * fallbackDuration), fallbackDuration)
+      }
       let streamTime = streamPlayer?.currentTime().seconds ?? .nan
       if streamTime.isFinite, streamTime >= 0 {
         return streamTime
       }
-      let fallbackDuration = Double(song?.duration ?? currentSong?.duration ?? 0)
       if fallbackDuration > 0 {
         return progress * fallbackDuration
       }
@@ -845,7 +897,9 @@ class AudioPlayerManager: ObservableObject {
                 let item = player.currentItem,
                 item.status == .readyToPlay else { return }
           let t = player.currentTime().seconds
-          let dur = item.duration.seconds
+          self.reconcilePreferredStreamResumeTime(observedTime: t, for: self.currentSong)
+          let itemDuration = item.duration.seconds
+          let dur = (itemDuration.isFinite && itemDuration > 0) ? itemDuration : self.playbackDuration
           guard dur.isFinite, dur > 0 else { return }
           let newProgress = min(1.0, max(0.0, t / dur))
           if abs(newProgress - self.progress) > 0.0005 {
@@ -859,6 +913,7 @@ class AudioPlayerManager: ObservableObject {
               totalDuration: dur,
               currentSong: self.currentSong,
               queue: self.queue,
+              repeatMode: self.repeatMode,
               autoMixEnabled: self.autoMixEnabled,
               crossfadeEnabled: self.crossfadeEnabled,
               crossfadeSeconds: self.crossfadeSeconds,
@@ -883,6 +938,7 @@ class AudioPlayerManager: ObservableObject {
             totalDuration: totalDur,
             currentSong: self.currentSong,
             queue: self.queue,
+            repeatMode: self.repeatMode,
             autoMixEnabled: self.autoMixEnabled,
             crossfadeEnabled: self.crossfadeEnabled,
             crossfadeSeconds: self.crossfadeSeconds,
@@ -897,16 +953,21 @@ class AudioPlayerManager: ObservableObject {
   }
 
   func play(song: Song, context: [Song] = []) {
+    play(song: song, context: context, resetTransitionVolume: true)
+  }
+
+  private func play(song: Song, context: [Song] = [], resetTransitionVolume: Bool) {
     DebugLogger.log("Play requested: \(song.title) (id: \(song.id))", category: .playback)
     let previousSongID = currentSong?.id
     let effectToResume = currentActiveEffect ?? deferredAIEffect
     suppressPlaybackEndedCallbacks()
+    clearPreferredStreamResumeTime()
     if isRadioMode { RadioController.shared.stop() }
     stopRadioPlayer()
     stopStreamPlayer()
     isRadioMode = false
     radioArtworkURL = nil
-    cancelPendingTransitionWork()
+    cancelPendingTransitionWork(resetVolume: resetTransitionVolume)
     audioKit.cancelCrossfade()
     audioKit.stop()
     instrumentalTask?.cancel()
@@ -1015,7 +1076,7 @@ class AudioPlayerManager: ObservableObject {
           expectedRemoteURL: currentSong.audioURL)
       else { return }
       if self.isStreamMode, self.currentPlaybackURL?.path != playableURL.path {
-        let resumeAt = max(0, self.streamPlayer?.currentTime().seconds ?? 0)
+        let resumeAt = max(0, self.activePlaybackTime(for: currentSong))
         self.startStreamPlayback(url: playableURL, songID: songID, startAt: resumeAt)
       }
       self.currentPlaybackURL = playableURL
@@ -1101,6 +1162,7 @@ class AudioPlayerManager: ObservableObject {
     }
     if isStreamMode {
       if isPlaying {
+        cancelPendingTransitionWork()
         streamPlayer?.pause()
       } else {
         configureAudioSessionCategory()
@@ -1126,6 +1188,9 @@ class AudioPlayerManager: ObservableObject {
 
   func pauseIfPlaying() {
     guard isPlaying else { return }
+    if !isRadioMode {
+      cancelPendingTransitionWork()
+    }
     if isRadioMode {
       radioPlayer?.pause()
     } else if isStreamMode {
@@ -1145,10 +1210,14 @@ class AudioPlayerManager: ObservableObject {
     suppressPlaybackEndedCallbacks()
     progress = fraction
     if isStreamMode {
-      guard let player = streamPlayer, let duration = player.currentItem?.duration,
-            duration.isNumeric, duration.seconds > 0 else { return }
-      let target = CMTime(seconds: duration.seconds * fraction, preferredTimescale: 600)
-      player.seek(to: target)
+      guard let player = streamPlayer else { return }
+      let totalDur = playbackDuration
+      guard totalDur.isFinite, totalDur > 0 else { return }
+      let targetSeconds = min(totalDur * fraction, totalDur - 1.5)
+      guard targetSeconds >= 0 else { return }
+      setPreferredStreamResumeTime(targetSeconds, for: currentSong?.id)
+      let target = CMTime(seconds: targetSeconds, preferredTimescale: 600)
+      player.seek(to: target, toleranceBefore: .zero, toleranceAfter: .zero)
       if anyAIEffectActive {
         applyMLSeparationIfNeeded()
       }
@@ -1347,6 +1416,11 @@ class AudioPlayerManager: ObservableObject {
     player.volume = 1.0
     streamPlayer = player
     streamStartedAt = Date()
+    if startAt > 0 {
+      setPreferredStreamResumeTime(startAt, for: songID)
+    } else {
+      clearPreferredStreamResumeTime()
+    }
     streamEndObserver = NotificationCenter.default.addObserver(
       forName: .AVPlayerItemDidPlayToEndTime, object: item, queue: .main
     ) { [weak self] _ in
@@ -1359,13 +1433,20 @@ class AudioPlayerManager: ObservableObject {
       self.playNextOrRandom()
     }
     NotificationCenter.default.post(name: MediaPlaybackCoordinator.audioWillPlay, object: nil)
-    if startAt > 0 {
-      let target = CMTime(seconds: startAt, preferredTimescale: 600)
-      player.seek(to: target, toleranceBefore: .zero, toleranceAfter: .zero)
-    }
-    player.play()
     isPlaying = true
     isBuffering = false
+    if startAt > 0 {
+      let target = CMTime(seconds: startAt, preferredTimescale: 600)
+      player.pause()
+      player.seek(to: target, toleranceBefore: .zero, toleranceAfter: .zero) {
+        [weak self, weak player] _ in
+        guard let self, let player, self.streamPlayer === player else { return }
+        guard self.isPlaying else { return }
+        player.play()
+      }
+    } else {
+      player.play()
+    }
     updateNowPlayingInfo(reloadArtwork: true)
   }
 
@@ -1375,12 +1456,15 @@ class AudioPlayerManager: ObservableObject {
     guard let startedAt = streamStartedAt, Date().timeIntervalSince(startedAt) >= 3 else { return }
     let streamTime = streamPlayer?.currentTime().seconds ?? .nan
     let hasRemoteProgress = streamTime.isFinite && streamTime > 0.25
-    let isWaitingToPlay = streamPlayer?.timeControlStatus == .waitingToPlayAtSpecifiedRate
-    guard isWaitingToPlay || !hasRemoteProgress else { return }
+    // The partial file is still being appended while the remote stream plays.
+    // Switching to it after playback has already progressed can strand AVPlayer at
+    // the current file length and manifest as a mid-song stall or glitch.
+    guard !hasRemoteProgress else { return }
     DebugLogger.log(
-      "Switching stalled stream to local fallback for \(song.id)",
+      "Switching startup-stalled stream to local fallback for \(song.id)",
       category: .playback)
-    startStreamPlayback(url: fallbackURL, songID: song.id, startAt: max(0, hasRemoteProgress ? streamTime : 0))
+    let resumeAt = max(0, activePlaybackTime(for: song))
+    startStreamPlayback(url: fallbackURL, songID: song.id, startAt: resumeAt)
   }
 
   private func stopStreamPlayer() {
@@ -1412,6 +1496,36 @@ class AudioPlayerManager: ObservableObject {
           timer.invalidate()
           self?.streamFadeTimer = nil
         }
+      }
+    }
+    streamFadeTimer = timer
+    RunLoop.main.add(timer, forMode: .common)
+  }
+
+  private func fadeOutStreamPlayerWhenCrossfadeStarts(duration: TimeInterval) {
+    streamFadeTimer?.invalidate()
+    let interval = AudioKitPlayback.transitionTimerInterval
+    let timeout = Date().addingTimeInterval(max(2.5, duration + 1.5))
+    let timer = Timer(timeInterval: interval, repeats: true) { [weak self] timer in
+      guard self != nil else { timer.invalidate(); return }
+      MainActor.assumeIsolated {
+        guard let self else { return }
+        guard self.isStreamMode, !self.isRadioMode else {
+          timer.invalidate()
+          if self.streamFadeTimer === timer { self.streamFadeTimer = nil }
+          return
+        }
+        guard self.transitionCoordinator.state.isCrossfading else {
+          if Date() >= timeout {
+            timer.invalidate()
+            if self.streamFadeTimer === timer { self.streamFadeTimer = nil }
+          }
+          return
+        }
+        guard self.audioKit.isCrossfading else { return }
+        timer.invalidate()
+        if self.streamFadeTimer === timer { self.streamFadeTimer = nil }
+        self.fadeOutStreamPlayer(duration: duration)
       }
     }
     streamFadeTimer = timer
@@ -1647,6 +1761,9 @@ class AudioPlayerManager: ObservableObject {
     case .began:
       wasPlayingBeforeInterruption = isPlaying
       if isPlaying {
+        if !isRadioMode {
+          cancelPendingTransitionWork()
+        }
         if isRadioMode { radioPlayer?.pause() }
         else if isStreamMode { streamPlayer?.pause() }
         else { audioKit.pause() }
@@ -1675,6 +1792,9 @@ class AudioPlayerManager: ObservableObject {
       let reason = AVAudioSession.RouteChangeReason(rawValue: reasonValue)
     else { return }
     if reason == .oldDeviceUnavailable, isPlaying {
+      if !isRadioMode {
+        cancelPendingTransitionWork()
+      }
       if isRadioMode { radioPlayer?.pause() }
       else if isStreamMode { streamPlayer?.pause() }
       else { audioKit.pause() }
@@ -1979,21 +2099,29 @@ class AudioPlayerManager: ObservableObject {
     if anyAIEffectActive {
       quickCutToNext(plan: plan)
     } else {
-      if isStreamMode {
-        fadeOutStreamPlayer(duration: plan.fadeDuration)
-      }
       audioKit.beginCrossfade(
         url: plan.nextFileURL,
         duration: plan.fadeDuration,
         ramp: plan.rampStyle
       )
+      if isStreamMode {
+        fadeOutStreamPlayerWhenCrossfadeStarts(duration: plan.fadeDuration)
+      }
       let timeout = plan.fadeDuration + 3.0
       DispatchQueue.main.asyncAfter(deadline: .now() + timeout) { [weak self] in
         guard let self, self.transitionCoordinator.state.isCrossfading else { return }
+        let handoffReady = self.audioKit.currentURL?.path == plan.nextFileURL.path && self.audioKit.isPlaying
         DebugLogger.log(
-          "Transition timeout fallback fired for next=\(plan.nextSong.id), currentSong=\(self.currentSong?.id ?? "nil"), audioTime=\(self.audioKit.currentTime), isPlaying=\(self.isPlaying)",
+          "Transition timeout fallback fired for next=\(plan.nextSong.id), currentSong=\(self.currentSong?.id ?? "nil"), audioURL=\(self.audioKit.currentURL?.lastPathComponent ?? "nil"), expected=\(plan.nextFileURL.lastPathComponent), audioTime=\(self.audioKit.currentTime), isPlaying=\(self.isPlaying), handoffReady=\(handoffReady)",
           category: .playback)
-        self.transitionCoordinatorDidFinish()
+        if handoffReady {
+          self.transitionCoordinatorDidFinish()
+        } else {
+          DebugLogger.log(
+            "Transition timeout recovery forcing play(\(plan.nextSong.id))",
+            category: .playback)
+          self.play(song: plan.nextSong, resetTransitionVolume: true)
+        }
       }
     }
   }
@@ -2032,10 +2160,11 @@ class AudioPlayerManager: ObservableObject {
         if t >= 1.0 {
           timer.invalidate()
           self.quickCutTimer = nil
-          self.audioKit.setMasterVolume(1.0)
           DebugLogger.log("Quick cut transition complete -> play(\(song.id))", category: .playback)
           self.transitionCoordinator.reset()
-          self.play(song: song)
+          self.audioKit.setMasterVolume(0)
+          self.play(song: song, resetTransitionVolume: false)
+          self.audioKit.setMasterVolume(1.0)
         }
       }
     }
@@ -2048,7 +2177,18 @@ class AudioPlayerManager: ObservableObject {
       transitionCoordinator.reset()
       return
     }
+    let handoffReady = audioKit.currentURL?.path == plan.nextFileURL.path
+    let handoffDuration = audioKit.duration
+    let hasPlayableDuration = handoffDuration.isFinite && handoffDuration > 0.1
+    guard handoffReady, audioKit.isPlaying, hasPlayableDuration else {
+      DebugLogger.log(
+        "Transition completion recovery next=\(plan.nextSong.id), audioURL=\(audioKit.currentURL?.lastPathComponent ?? "nil"), expected=\(plan.nextFileURL.lastPathComponent), duration=\(handoffDuration), playing=\(audioKit.isPlaying)",
+        category: .playback)
+      play(song: plan.nextSong, resetTransitionVolume: true)
+      return
+    }
     stopStreamPlayer()
+    clearPreferredStreamResumeTime()
     let song = plan.nextSong
     reportPlayCount(for: song.id)
     enrichSongMetadataIfNeeded(for: song)

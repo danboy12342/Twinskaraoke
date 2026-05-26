@@ -1077,6 +1077,15 @@ final class AudioKitPlayback {
     url: URL,
     resumeTime: TimeInterval
   ) throws {
+    guard Self.containsPlayableMedia(media) else {
+      throw NSError(
+        domain: "AudioKitPlayback",
+        code: -1001,
+        userInfo: [
+          NSLocalizedDescriptionKey:
+            "Crossfade handoff for \(url.lastPathComponent) finished without playable media"
+        ])
+    }
     if let media {
       try applyMedia(media, to: mainPlayer)
     }
@@ -1087,6 +1096,17 @@ final class AudioKitPlayback {
     stopAllStems(releasingMedia: true)
     mainPlayer.volume = 1.0
     resetInstrumentalEQ()
+    startEngineIfNeeded()
+    let loadedDuration = mainPlayer.duration
+    guard loadedDuration.isFinite, loadedDuration > 0.1 else {
+      throw NSError(
+        domain: "AudioKitPlayback",
+        code: -1002,
+        userInfo: [
+          NSLocalizedDescriptionKey:
+            "Crossfade handoff for \(url.lastPathComponent) loaded invalid duration \(loadedDuration)"
+        ])
+    }
     safePlay(mainPlayer, from: resumeTime)
     currentURL = url
     DebugLogger.log(
@@ -1143,6 +1163,15 @@ final class AudioKitPlayback {
       return "buffer(\(buffer.frameLength)f)"
     }
     return "empty"
+  }
+
+  private static func containsPlayableMedia(_ media: LoadedMedia?) -> Bool {
+    guard let media else { return false }
+    if media.0 != nil { return true }
+    if let buffer = media.1 {
+      return buffer.frameLength > 0
+    }
+    return false
   }
 
   private static let silenceBuffer: AVAudioPCMBuffer? = {

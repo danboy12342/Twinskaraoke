@@ -97,6 +97,7 @@ final class CacheManager: ObservableObject {
     SDImageCache.shared.clearDisk(onCompletion: nil)
     let dir = Self.imageCacheDirectory
     removeAllFiles(in: dir)
+    FallbackArtProvider.shared.resetBindings()
     imageCacheSize = 0
     DebugLogger.log("Image cache cleared", category: .cache)
   }

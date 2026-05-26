@@ -79,6 +79,7 @@ final class TransitionCoordinator {
     totalDuration: TimeInterval,
     currentSong: Song?,
     queue: [Song],
+    repeatMode: RepeatMode,
     autoMixEnabled: Bool,
     crossfadeEnabled: Bool,
     crossfadeSeconds: Double,
@@ -101,7 +102,8 @@ final class TransitionCoordinator {
     switch state {
     case .idle:
       guard remaining <= prepareAt, remaining > 0 else { return }
-      if let nextSong = nextSongInQueue(current: currentSong, queue: queue) {
+      if let nextSong = nextSongInQueue(current: currentSong, queue: queue, repeatMode: repeatMode)
+      {
         beginPreparing(
           nextSong: nextSong, currentSong: currentSong,
           autoMixEnabled: autoMixEnabled, crossfadeSeconds: crossfadeSeconds,
@@ -174,7 +176,7 @@ final class TransitionCoordinator {
 
       if autoMixEnabled {
         if aiEffectActive {
-          fadeDuration = 0.5
+          fadeDuration = 1.2
           rampStyle = .linear
         } else {
           let result = Self.computeFade(outBPM: outBPM, inBPM: inBPM)
@@ -255,9 +257,10 @@ final class TransitionCoordinator {
     return AudioCacheStore.playableMainURL(for: song.id, expectedRemoteURL: song.audioURL)
   }
 
-  private func nextSongInQueue(current: Song, queue: [Song]) -> Song? {
+  private func nextSongInQueue(current: Song, queue: [Song], repeatMode: RepeatMode) -> Song? {
     guard !queue.isEmpty, let idx = queue.firstIndex(of: current) else { return nil }
     if idx + 1 < queue.count { return queue[idx + 1] }
+    if repeatMode == .all { return queue.first }
     return nil
   }
 
