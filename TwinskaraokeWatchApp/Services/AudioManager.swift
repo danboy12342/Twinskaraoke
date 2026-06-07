@@ -33,6 +33,8 @@ class AudioManager: ObservableObject {
   private var cancellables = Set<AnyCancellable>()
   private var downloadTask: URLSessionDownloadTask?
   private var recoveringFromBrokenCache: Set<String> = []
+  private var playbackRequested = false
+  private var shouldResumeAfterInterruption = false
   private static let audioCacheDir: URL = {
     let dir = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first!
       .appendingPathComponent("AudioCache")
@@ -63,24 +65,36 @@ class AudioManager: ObservableObject {
     currentTime = 0
     duration = 0
     isPlaying = false
+    playbackRequested = true
     cancellables.removeAll()
     setupInterruptionHandler()
     downloadTask?.cancel()
-    guard let song = currentSong else { return }
+    guard let song = currentSong else {
+      playbackRequested = false
+      isLoading = false
+      return
+    }
     let localURL = localCacheURL(for: song.id)
     if FileManager.default.fileExists(atPath: localURL.path) {
       isLoading = true
       validateCacheAndPlay(song: song, cacheURL: localURL)
       return
     }
-    guard let remoteURL = song.audioURL else { return }
+    guard let remoteURL = song.audioURL else {
+      playbackRequested = false
+      isLoading = false
+      return
+    }
     isLoading = true
     downloadTask = URLSession.shared.downloadTask(with: remoteURL) {
       [weak self] tempURL, _, error in
       DispatchQueue.main.async {
         guard let self = self else { return }
         self.isLoading = false
-        guard let tempURL = tempURL, error == nil else { return }
+        guard let tempURL = tempURL, error == nil else {
+          self.playbackRequested = false
+          return
+        }
         try? FileManager.default.moveItem(at: tempURL, to: localURL)
         guard self.currentSong?.id == song.id else { return }
         self.evictOldCacheFiles()
@@ -96,8 +110,9 @@ class AudioManager: ObservableObject {
       try AVAudioSession.sharedInstance().setActive(true)
     } catch {}
     let playerItem = AVPlayerItem(url: localURL)
-    self.player = AVPlayer(playerItem: playerItem)
-    player?.audiovisualBackgroundPlaybackPolicy = .continuesIfPossible
+    let player = AVPlayer(playerItem: playerItem)
+    self.player = player
+    player.audiovisualBackgroundPlaybackPolicy = .continuesIfPossible
     playerItem.publisher(for: \.duration)
       .receive(on: DispatchQueue.main)
       .sink { [weak self] dur in
@@ -112,20 +127,29 @@ class AudioManager: ObservableObject {
       .sink { [weak self] status in
         guard let self = self else { return }
         if status == .readyToPlay {
-          self.isLoading = false
-          self.player?.play()
-          self.isPlaying = true
+          if self.playbackRequested {
+            player.play()
+          }
+          self.refreshPlaybackState()
           self.updateNowPlayingInfo()
         } else if status == .failed {
           self.isLoading = false
+          self.isPlaying = false
           if !self.recoverFromBrokenCache(playbackURL: localURL) {
+            self.playbackRequested = false
             self.playNext()
           }
         }
       }
       .store(in: &cancellables)
+    player.publisher(for: \.timeControlStatus, options: [.initial, .new])
+      .receive(on: DispatchQueue.main)
+      .sink { [weak self] _ in
+        self?.refreshPlaybackState()
+      }
+      .store(in: &cancellables)
     let interval = CMTime(seconds: 0.5, preferredTimescale: 600)
-    timeObserver = player?.addPeriodicTimeObserver(forInterval: interval, queue: .main) {
+    timeObserver = player.addPeriodicTimeObserver(forInterval: interval, queue: .main) {
       [weak self] time in
       Task { @MainActor [weak self] in
         guard let self = self else { return }
@@ -146,17 +170,68 @@ class AudioManager: ObservableObject {
       }
     }
   }
-  func togglePlayPause() {
-    if isPlaying {
-      player?.pause()
-    } else {
-      do {
-        try AVAudioSession.sharedInstance().setActive(true)
-      } catch {}
-      player?.play()
+  private func refreshPlaybackState() {
+    guard playbackRequested else {
+      isPlaying = false
+      isLoading = false
+      return
     }
-    isPlaying.toggle()
+    guard let player else {
+      isPlaying = false
+      return
+    }
+    if player.timeControlStatus == .playing {
+      isPlaying = true
+      isLoading = false
+    } else {
+      isPlaying = false
+      isLoading = true
+    }
+  }
+  @discardableResult
+  private func pausePlayback(cancelDownload: Bool = true) -> Bool {
+    let hasPendingDownload = player == nil && (playbackRequested || isLoading)
+    if hasPendingDownload && cancelDownload {
+      downloadTask?.cancel()
+    }
+    guard player != nil || playbackRequested || isLoading else { return false }
+    playbackRequested = false
+    player?.pause()
+    isPlaying = false
+    if cancelDownload || player != nil {
+      isLoading = false
+    }
     updateNowPlayingInfo()
+    return true
+  }
+  @discardableResult
+  private func resumePlayback() -> Bool {
+    guard let player else {
+      if isLoading {
+        playbackRequested = true
+        updateNowPlayingInfo()
+        return true
+      }
+      isPlaying = false
+      if !isLoading { playbackRequested = false }
+      updateNowPlayingInfo()
+      return false
+    }
+    do {
+      try AVAudioSession.sharedInstance().setActive(true)
+    } catch {}
+    playbackRequested = true
+    player.play()
+    refreshPlaybackState()
+    updateNowPlayingInfo()
+    return true
+  }
+  @discardableResult
+  func togglePlayPause() -> Bool {
+    if playbackRequested || isPlaying {
+      return pausePlayback()
+    }
+    return resumePlayback()
   }
   func playNext() {
     guard !queue.isEmpty else { return }
@@ -268,6 +343,7 @@ class AudioManager: ObservableObject {
       try? FileManager.default.removeItem(at: cacheURL)
       guard let remoteURL = song.audioURL else {
         self.isLoading = false
+        self.playbackRequested = false
         return
       }
       self.downloadTask = URLSession.shared.downloadTask(with: remoteURL) {
@@ -275,7 +351,10 @@ class AudioManager: ObservableObject {
         DispatchQueue.main.async {
           guard let self = self else { return }
           self.isLoading = false
-          guard let tempURL = tempURL, error == nil else { return }
+          guard let tempURL = tempURL, error == nil else {
+            self.playbackRequested = false
+            return
+          }
           try? FileManager.default.moveItem(at: tempURL, to: cacheURL)
           guard self.currentSong?.id == songID else { return }
           self.evictOldCacheFiles()
@@ -303,7 +382,10 @@ class AudioManager: ObservableObject {
       DispatchQueue.main.async {
         guard let self = self else { return }
         self.isLoading = false
-        guard let tempURL = tempURL, error == nil else { return }
+        guard let tempURL = tempURL, error == nil else {
+          self.playbackRequested = false
+          return
+        }
         try? FileManager.default.moveItem(at: tempURL, to: playbackURL)
         guard self.currentSong?.id == songID else { return }
         self.evictOldCacheFiles()
@@ -341,18 +423,16 @@ class AudioManager: ObservableObject {
   private func setupRemoteCommands() {
     let cc = MPRemoteCommandCenter.shared()
     cc.playCommand.addTarget { [weak self] _ in
-      guard let self = self, !self.isPlaying else { return .commandFailed }
-      self.togglePlayPause()
-      return .success
+      guard let self = self, !self.playbackRequested else { return .commandFailed }
+      return self.resumePlayback() ? .success : .commandFailed
     }
     cc.pauseCommand.addTarget { [weak self] _ in
-      guard let self = self, self.isPlaying else { return .commandFailed }
-      self.togglePlayPause()
-      return .success
+      guard let self = self, self.playbackRequested else { return .commandFailed }
+      return self.pausePlayback() ? .success : .commandFailed
     }
     cc.togglePlayPauseCommand.addTarget { [weak self] _ in
-      self?.togglePlayPause()
-      return .success
+      guard let self else { return .commandFailed }
+      return self.togglePlayPause() ? .success : .commandFailed
     }
     cc.nextTrackCommand.addTarget { [weak self] _ in
       self?.playNext()
@@ -375,20 +455,17 @@ class AudioManager: ObservableObject {
     else { return }
     switch type {
     case .began:
-      if isPlaying {
-        player?.pause()
-        isPlaying = false
-        updateNowPlayingInfo()
+      shouldResumeAfterInterruption = playbackRequested
+      if playbackRequested {
+        pausePlayback(cancelDownload: false)
       }
     case .ended:
       guard let optsValue = info[AVAudioSessionInterruptionOptionKey] as? UInt else { return }
       let opts = AVAudioSession.InterruptionOptions(rawValue: optsValue)
-      if opts.contains(.shouldResume) {
-        do { try AVAudioSession.sharedInstance().setActive(true) } catch {}
-        player?.play()
-        isPlaying = true
-        updateNowPlayingInfo()
+      if opts.contains(.shouldResume), shouldResumeAfterInterruption {
+        resumePlayback()
       }
+      shouldResumeAfterInterruption = false
     @unknown default: break
     }
   }

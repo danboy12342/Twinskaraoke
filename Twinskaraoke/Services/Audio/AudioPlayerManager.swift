@@ -132,6 +132,10 @@ private enum AudioEffect {
   case karaoke, bassEnhance, vocalEnhance, instrumentalEnhance
 }
 
+private enum ManagedAVPlayerKind {
+  case radio, stream
+}
+
 class AudioPlayerManager: ObservableObject {
   static let shared = AudioPlayerManager()
   @Published var currentSong: Song?
@@ -397,6 +401,10 @@ class AudioPlayerManager: ObservableObject {
   private var streamPlayer: AVPlayer?
   private var streamEndObserver: NSObjectProtocol?
   private var radioTimeObserver: (player: AVPlayer, token: Any)?
+  private var radioPlayerCancellables = Set<AnyCancellable>()
+  private var streamPlayerCancellables = Set<AnyCancellable>()
+  private var radioPlaybackRequested = false
+  private var streamPlaybackRequested = false
   private var lastKnownPlaybackTime: TimeInterval = 0
   private var pollTimer: Timer?
   private var streamFadeTimer: Timer?
@@ -451,6 +459,12 @@ class AudioPlayerManager: ObservableObject {
     return !isKaraokePreparedForCurrentSong
   }
 
+  private var isPlaybackRequested: Bool {
+    if isRadioMode { return radioPlaybackRequested }
+    if isStreamMode { return streamPlaybackRequested }
+    return isPlaying
+  }
+
   var isBackgroundKaraokeLocked: Bool {
     guard aiEnabled, aiAutoAnalyze, !isRadioMode else { return false }
     guard currentSong != nil else { return false }
@@ -460,6 +474,19 @@ class AudioPlayerManager: ObservableObject {
   var isKaraokePreparedForCurrentSong: Bool {
     guard let songID = currentSong?.id else { return false }
     return preparedStemSongID == songID
+  }
+
+  private func setPlaybackState(
+    playing: Bool,
+    buffering: Bool,
+    reloadArtwork: Bool = false
+  ) {
+    let changed = isPlaying != playing || isBuffering != buffering || reloadArtwork
+    isPlaying = playing
+    isBuffering = buffering
+    if changed {
+      updateNowPlayingInfo(reloadArtwork: reloadArtwork)
+    }
   }
 
   init() {
@@ -826,7 +853,7 @@ class AudioPlayerManager: ObservableObject {
     onReady: (() -> Void)? = nil
   ) {
     suppressPlaybackEndedCallbacks()
-    let shouldResume = isPlaying
+    let shouldResume = isPlaybackRequested
     let startAt = activePlaybackTime(for: song)
     currentPlaybackURL = sourceURL
     aiStemSwitchInFlightSongID = song.id
@@ -1162,7 +1189,12 @@ class AudioPlayerManager: ObservableObject {
       else { return }
       if self.isStreamMode, self.currentPlaybackURL?.path != playableURL.path {
         let resumeAt = max(0, self.activePlaybackTime(for: currentSong))
-        self.startStreamPlayback(url: playableURL, songID: songID, startAt: resumeAt)
+        let shouldAutoplay = self.streamPlaybackRequested || self.isPlaying
+        self.startStreamPlayback(
+          url: playableURL,
+          songID: songID,
+          startAt: resumeAt,
+          autoplay: shouldAutoplay)
       }
       self.currentPlaybackURL = playableURL
       self.prepareBackgroundStemPlaybackIfPossible(for: currentSong)
@@ -1255,61 +1287,88 @@ class AudioPlayerManager: ObservableObject {
     startStreamPlayback(url: remoteURL, songID: song.id, startAt: resumeAt)
   }
 
-  func togglePlayPause() {
+  @discardableResult
+  private func pauseCurrentPlayback() -> Bool {
     if isRadioMode {
-      if isPlaying {
-        radioPlayer?.pause()
-      } else {
-        configureAudioSessionCategory()
-        activateAudioSession()
-        NotificationCenter.default.post(name: MediaPlaybackCoordinator.audioWillPlay, object: nil)
-        radioPlayer?.play()
+      guard let player = radioPlayer else {
+        radioPlaybackRequested = false
+        setPlaybackState(playing: false, buffering: false)
+        return false
       }
-      isPlaying.toggle()
-      updateNowPlayingInfo(reloadArtwork: false)
-      return
+      radioPlaybackRequested = false
+      player.pause()
+      setPlaybackState(playing: false, buffering: false)
+      return true
     }
     if isStreamMode {
-      if isPlaying {
-        cancelPendingTransitionWork()
-        streamPlayer?.pause()
-      } else {
-        configureAudioSessionCategory()
-        activateAudioSession()
-        NotificationCenter.default.post(name: MediaPlaybackCoordinator.audioWillPlay, object: nil)
-        streamPlayer?.play()
+      guard let player = streamPlayer else {
+        streamPlaybackRequested = false
+        setPlaybackState(playing: false, buffering: false)
+        return false
       }
-      isPlaying.toggle()
-      updateNowPlayingInfo(reloadArtwork: false)
-      return
-    }
-    if isPlaying {
       cancelPendingTransitionWork()
-      avEngine.pause()
-      isPlaying = false
-    } else {
-      NotificationCenter.default.post(name: MediaPlaybackCoordinator.audioWillPlay, object: nil)
-      avEngine.resume()
-      isPlaying = true
+      streamPlaybackRequested = false
+      player.pause()
+      setPlaybackState(playing: false, buffering: false)
+      return true
     }
-    updateNowPlayingInfo(reloadArtwork: false)
+    guard isPlaying else { return false }
+    cancelPendingTransitionWork()
+    avEngine.pause()
+    setPlaybackState(playing: false, buffering: false)
+    return true
+  }
+
+  @discardableResult
+  private func resumeCurrentPlayback() -> Bool {
+    if isRadioMode {
+      guard let player = radioPlayer else {
+        radioPlaybackRequested = false
+        setPlaybackState(playing: false, buffering: false)
+        return false
+      }
+      configureAudioSessionCategory()
+      activateAudioSession()
+      NotificationCenter.default.post(name: MediaPlaybackCoordinator.audioWillPlay, object: nil)
+      radioPlaybackRequested = true
+      setPlaybackState(playing: false, buffering: true)
+      player.play()
+      refreshManagedPlayerState(player, kind: .radio)
+      return true
+    }
+    if isStreamMode {
+      guard let player = streamPlayer else {
+        streamPlaybackRequested = false
+        setPlaybackState(playing: false, buffering: false)
+        return false
+      }
+      configureAudioSessionCategory()
+      activateAudioSession()
+      NotificationCenter.default.post(name: MediaPlaybackCoordinator.audioWillPlay, object: nil)
+      streamPlaybackRequested = true
+      setPlaybackState(playing: false, buffering: true)
+      player.play()
+      refreshManagedPlayerState(player, kind: .stream)
+      return true
+    }
+    guard currentSong != nil else { return false }
+    NotificationCenter.default.post(name: MediaPlaybackCoordinator.audioWillPlay, object: nil)
+    avEngine.resume()
+    setPlaybackState(playing: true, buffering: false)
+    return true
+  }
+
+  @discardableResult
+  func togglePlayPause() -> Bool {
+    if isPlaybackRequested {
+      return pauseCurrentPlayback()
+    }
+    return resumeCurrentPlayback()
   }
 
   func pauseIfPlaying() {
-    guard isPlaying else { return }
-    if !isRadioMode {
-      cancelPendingTransitionWork()
-    }
-    if isRadioMode {
-      radioPlayer?.pause()
-    } else if isStreamMode {
-      streamPlayer?.pause()
-    } else {
-      cancelPendingTransitionWork()
-      avEngine.pause()
-    }
-    isPlaying = false
-    updateNowPlayingInfo(reloadArtwork: false)
+    guard isPlaybackRequested else { return }
+    pauseCurrentPlayback()
   }
 
   func seek(to fraction: Double) {
@@ -1453,6 +1512,139 @@ class AudioPlayerManager: ObservableObject {
     queue = Array(queue[..<upNextStart]) + upNext
   }
 
+  private func observeManagedPlayer(
+    _ player: AVPlayer,
+    item: AVPlayerItem,
+    kind: ManagedAVPlayerKind
+  ) {
+    let statusHandler: (AVPlayerItem.Status) -> Void = { [weak self, weak player, weak item] status in
+      guard let self, let player, let item else { return }
+      self.handleManagedItemStatus(status, player: player, item: item, kind: kind)
+    }
+    let stateHandler: () -> Void = { [weak self, weak player] in
+      guard let self, let player else { return }
+      self.refreshManagedPlayerState(player, kind: kind)
+    }
+
+    switch kind {
+    case .radio:
+      radioPlayerCancellables.removeAll()
+      item.publisher(for: \.status, options: [.initial, .new])
+        .receive(on: DispatchQueue.main)
+        .sink(receiveValue: statusHandler)
+        .store(in: &radioPlayerCancellables)
+      item.publisher(for: \.isPlaybackBufferEmpty, options: [.new])
+        .receive(on: DispatchQueue.main)
+        .sink { _ in stateHandler() }
+        .store(in: &radioPlayerCancellables)
+      item.publisher(for: \.isPlaybackLikelyToKeepUp, options: [.new])
+        .receive(on: DispatchQueue.main)
+        .sink { _ in stateHandler() }
+        .store(in: &radioPlayerCancellables)
+      player.publisher(for: \.timeControlStatus, options: [.initial, .new])
+        .receive(on: DispatchQueue.main)
+        .sink { _ in stateHandler() }
+        .store(in: &radioPlayerCancellables)
+    case .stream:
+      streamPlayerCancellables.removeAll()
+      item.publisher(for: \.status, options: [.initial, .new])
+        .receive(on: DispatchQueue.main)
+        .sink(receiveValue: statusHandler)
+        .store(in: &streamPlayerCancellables)
+      item.publisher(for: \.isPlaybackBufferEmpty, options: [.new])
+        .receive(on: DispatchQueue.main)
+        .sink { _ in stateHandler() }
+        .store(in: &streamPlayerCancellables)
+      item.publisher(for: \.isPlaybackLikelyToKeepUp, options: [.new])
+        .receive(on: DispatchQueue.main)
+        .sink { _ in stateHandler() }
+        .store(in: &streamPlayerCancellables)
+      player.publisher(for: \.timeControlStatus, options: [.initial, .new])
+        .receive(on: DispatchQueue.main)
+        .sink { _ in stateHandler() }
+        .store(in: &streamPlayerCancellables)
+    }
+  }
+
+  private func handleManagedItemStatus(
+    _ status: AVPlayerItem.Status,
+    player: AVPlayer,
+    item: AVPlayerItem,
+    kind: ManagedAVPlayerKind
+  ) {
+    guard isCurrentManagedPlayer(player, kind: kind) else { return }
+    switch status {
+    case .readyToPlay:
+      refreshManagedPlayerState(player, kind: kind)
+    case .failed:
+      handleManagedPlayerFailure(player: player, item: item, kind: kind)
+    case .unknown:
+      refreshManagedPlayerState(player, kind: kind)
+    @unknown default:
+      refreshManagedPlayerState(player, kind: kind)
+    }
+  }
+
+  private func refreshManagedPlayerState(_ player: AVPlayer, kind: ManagedAVPlayerKind) {
+    guard isCurrentManagedPlayer(player, kind: kind) else { return }
+    guard let item = player.currentItem else {
+      setPlaybackState(playing: false, buffering: false)
+      return
+    }
+    if item.status == .failed {
+      handleManagedPlayerFailure(player: player, item: item, kind: kind)
+      return
+    }
+    let playbackRequested = playbackRequested(for: kind)
+    guard playbackRequested else {
+      setPlaybackState(playing: false, buffering: false)
+      return
+    }
+    if player.timeControlStatus == .playing {
+      setPlaybackState(playing: true, buffering: false)
+    } else {
+      setPlaybackState(playing: false, buffering: true)
+    }
+  }
+
+  private func handleManagedPlayerFailure(
+    player: AVPlayer,
+    item: AVPlayerItem,
+    kind: ManagedAVPlayerKind
+  ) {
+    guard isCurrentManagedPlayer(player, kind: kind) else { return }
+    let message = item.error?.localizedDescription
+      ?? player.error?.localizedDescription
+      ?? "unknown error"
+    switch kind {
+    case .radio:
+      DebugLogger.log("Radio AVPlayer failed: \(message)", category: .playback)
+      radioPlaybackRequested = false
+    case .stream:
+      DebugLogger.log("Stream AVPlayer failed: \(message)", category: .playback)
+      streamPlaybackRequested = false
+    }
+    setPlaybackState(playing: false, buffering: false)
+  }
+
+  private func isCurrentManagedPlayer(_ player: AVPlayer, kind: ManagedAVPlayerKind) -> Bool {
+    switch kind {
+    case .radio:
+      return radioPlayer === player
+    case .stream:
+      return streamPlayer === player
+    }
+  }
+
+  private func playbackRequested(for kind: ManagedAVPlayerKind) -> Bool {
+    switch kind {
+    case .radio:
+      return radioPlaybackRequested
+    case .stream:
+      return streamPlaybackRequested
+    }
+  }
+
   func playRadio(streamURL: URL, song: Song, artworkURL: URL?) {
     let alreadyOnSameStation = isRadioMode && currentSong?.id == song.id
     if alreadyOnSameStation {
@@ -1478,13 +1670,14 @@ class AudioPlayerManager: ObservableObject {
     queue = []
     originalQueue = []
     withAnimation(.easeInOut(duration: 0.32)) { currentSong = song }
-    isBuffering = true
     startRadio(url: streamURL)
   }
 
   private func startRadio(url: URL) {
     stopRadioPlayer()
     currentPlaybackURL = url
+    configureAudioSessionCategory()
+    activateAudioSession()
     let item = AVPlayerItem(url: url)
     let player = AVPlayer(playerItem: item)
     if #available(iOS 15.0, *) {
@@ -1494,14 +1687,17 @@ class AudioPlayerManager: ObservableObject {
     player.allowsExternalPlayback = true
     player.volume = 1.0
     radioPlayer = player
+    radioPlaybackRequested = true
+    setPlaybackState(playing: false, buffering: true)
+    observeManagedPlayer(player, item: item, kind: .radio)
     NotificationCenter.default.post(name: MediaPlaybackCoordinator.audioWillPlay, object: nil)
     player.play()
-    isPlaying = true
-    isBuffering = false
     updateNowPlayingInfo(reloadArtwork: true)
   }
 
   private func stopRadioPlayer() {
+    radioPlayerCancellables.removeAll()
+    radioPlaybackRequested = false
     if let existing = radioTimeObserver {
       existing.player.removeTimeObserver(existing.token)
       radioTimeObserver = nil
@@ -1511,7 +1707,12 @@ class AudioPlayerManager: ObservableObject {
     radioPlayer = nil
   }
 
-  private func startStreamPlayback(url: URL, songID: String, startAt: TimeInterval = 0) {
+  private func startStreamPlayback(
+    url: URL,
+    songID: String,
+    startAt: TimeInterval = 0,
+    autoplay: Bool = true
+  ) {
     stopStreamPlayer()
     currentPlaybackURL = url
     configureAudioSessionCategory()
@@ -1525,6 +1726,9 @@ class AudioPlayerManager: ObservableObject {
     player.volume = 1.0
     streamPlayer = player
     streamStartedAt = Date()
+    streamPlaybackRequested = autoplay
+    setPlaybackState(playing: false, buffering: autoplay)
+    observeManagedPlayer(player, item: item, kind: .stream)
     if startAt > 0 {
       setPreferredStreamResumeTime(startAt, for: songID)
     } else {
@@ -1543,19 +1747,23 @@ class AudioPlayerManager: ObservableObject {
         self.playNextOrRandom()
       }
     }
-    NotificationCenter.default.post(name: MediaPlaybackCoordinator.audioWillPlay, object: nil)
-    isPlaying = true
-    isBuffering = false
+    if autoplay {
+      NotificationCenter.default.post(name: MediaPlaybackCoordinator.audioWillPlay, object: nil)
+    }
     if startAt > 0 {
       let target = CMTime(seconds: startAt, preferredTimescale: 600)
       player.pause()
       player.seek(to: target, toleranceBefore: .zero, toleranceAfter: .zero) {
         [weak self, weak player] _ in
         guard let self, let player, self.streamPlayer === player else { return }
-        guard self.isPlaying else { return }
+        guard self.streamPlaybackRequested else {
+          self.refreshManagedPlayerState(player, kind: .stream)
+          return
+        }
         player.play()
+        self.refreshManagedPlayerState(player, kind: .stream)
       }
-    } else {
+    } else if autoplay {
       player.play()
     }
     updateNowPlayingInfo(reloadArtwork: true)
@@ -1563,6 +1771,7 @@ class AudioPlayerManager: ObservableObject {
 
   private func switchSilentStreamToLocalFallback(_ fallbackURL: URL, for song: Song) {
     guard isStreamMode, !isRadioMode else { return }
+    guard streamPlaybackRequested else { return }
     guard currentSong?.id == song.id else { return }
     guard let startedAt = streamStartedAt, Date().timeIntervalSince(startedAt) >= 3 else { return }
     let streamTime = streamPlayer?.currentTime().seconds ?? .nan
@@ -1579,6 +1788,8 @@ class AudioPlayerManager: ObservableObject {
   }
 
   private func stopStreamPlayer() {
+    streamPlayerCancellables.removeAll()
+    streamPlaybackRequested = false
     if let observer = streamEndObserver {
       NotificationCenter.default.removeObserver(observer)
       streamEndObserver = nil
@@ -1867,29 +2078,17 @@ class AudioPlayerManager: ObservableObject {
     else { return }
     switch type {
     case .began:
-      wasPlayingBeforeInterruption = isPlaying
-      if isPlaying {
-        if !isRadioMode {
-          cancelPendingTransitionWork()
-        }
-        if isRadioMode { radioPlayer?.pause() }
-        else if isStreamMode { streamPlayer?.pause() }
-        else { avEngine.pause() }
-        isPlaying = false
-        updateNowPlayingInfo(reloadArtwork: false)
+      wasPlayingBeforeInterruption = isPlaybackRequested
+      if wasPlayingBeforeInterruption {
+        pauseCurrentPlayback()
       }
     case .ended:
       guard let optsValue = info[AVAudioSessionInterruptionOptionKey] as? UInt else { return }
       let opts = AVAudioSession.InterruptionOptions(rawValue: optsValue)
       if opts.contains(.shouldResume), wasPlayingBeforeInterruption {
-        activateAudioSession()
-        NotificationCenter.default.post(name: MediaPlaybackCoordinator.audioWillPlay, object: nil)
-        if isRadioMode { radioPlayer?.play() }
-        else if isStreamMode { streamPlayer?.play() }
-        else { avEngine.resume() }
-        isPlaying = true
-        updateNowPlayingInfo(reloadArtwork: false)
+        resumeCurrentPlayback()
       }
+      wasPlayingBeforeInterruption = false
     @unknown default: break
     }
   }
@@ -1899,15 +2098,8 @@ class AudioPlayerManager: ObservableObject {
       let reasonValue = info[AVAudioSessionRouteChangeReasonKey] as? UInt,
       let reason = AVAudioSession.RouteChangeReason(rawValue: reasonValue)
     else { return }
-    if reason == .oldDeviceUnavailable, isPlaying {
-      if !isRadioMode {
-        cancelPendingTransitionWork()
-      }
-      if isRadioMode { radioPlayer?.pause() }
-      else if isStreamMode { streamPlayer?.pause() }
-      else { avEngine.pause() }
-      isPlaying = false
-      updateNowPlayingInfo(reloadArtwork: false)
+    if reason == .oldDeviceUnavailable, isPlaybackRequested {
+      pauseCurrentPlayback()
     }
   }
   func updateRouteIcon() {
@@ -1956,18 +2148,16 @@ class AudioPlayerManager: ObservableObject {
   private func setupRemoteCommands() {
     let cc = MPRemoteCommandCenter.shared()
     cc.playCommand.addTarget { [weak self] _ in
-      guard let self = self, !self.isPlaying else { return .commandFailed }
-      self.togglePlayPause()
-      return .success
+      guard let self = self, !self.isPlaybackRequested else { return .commandFailed }
+      return self.resumeCurrentPlayback() ? .success : .commandFailed
     }
     cc.pauseCommand.addTarget { [weak self] _ in
-      guard let self = self, self.isPlaying else { return .commandFailed }
-      self.togglePlayPause()
-      return .success
+      guard let self = self, self.isPlaybackRequested else { return .commandFailed }
+      return self.pauseCurrentPlayback() ? .success : .commandFailed
     }
     cc.togglePlayPauseCommand.addTarget { [weak self] _ in
-      self?.togglePlayPause()
-      return .success
+      guard let self else { return .commandFailed }
+      return self.togglePlayPause() ? .success : .commandFailed
     }
     cc.nextTrackCommand.addTarget { [weak self] _ in
       self?.playNextOrRandom()
