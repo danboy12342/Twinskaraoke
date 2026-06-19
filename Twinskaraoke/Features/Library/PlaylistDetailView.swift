@@ -134,7 +134,7 @@ struct PlaylistDetailView: View {
     if let url = playlist.explicitCoverURL {
       return [url]
     }
-    let songURLs = Playlist.uniqueURLs((loader.songs ?? playlist.songListDTOs ?? []).compactMap(\.imageURL), limit: 4)
+    let songURLs = Playlist.songArtworkURLs(loader.songs ?? playlist.songListDTOs ?? [], limit: 4)
     if !songURLs.isEmpty {
       return songURLs
     }
@@ -167,7 +167,7 @@ struct PlaylistDetailView: View {
       Text(playlist.name)
         .font(.title2.bold())
         .multilineTextAlignment(alignment)
-      Text("\(songCountText) songs")
+      Text(songCountText)
         .font(.subheadline)
         .foregroundColor(.secondary)
     }
@@ -177,7 +177,7 @@ struct PlaylistDetailView: View {
 
   private var songCountText: String {
     let songs = loader.songs ?? playlist.songListDTOs ?? []
-    return "\(songs.isEmpty ? playlist.songCount : songs.count)"
+    return LibrarySongCountText.songs(songs.isEmpty ? playlist.songCount : songs.count)
   }
 
   @ViewBuilder
@@ -317,7 +317,7 @@ private struct PlaylistDetailContextPreview: View {
           .font(.system(size: 17, weight: .semibold))
           .foregroundColor(.primary)
           .lineLimit(2)
-        Text("\(songs.isEmpty ? playlist.songCount : songs.count) songs")
+        Text(LibrarySongCountText.songs(songs.isEmpty ? playlist.songCount : songs.count))
           .font(.system(size: 14))
           .foregroundColor(.secondary)
           .lineLimit(1)

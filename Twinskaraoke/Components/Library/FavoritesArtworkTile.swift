@@ -2,21 +2,36 @@ import Combine
 import SwiftUI
 
 struct FavoritesArtworkTile: View {
-  var sizeFraction: CGFloat = 0.45
+  var sizeFraction: CGFloat = 0.48
   var body: some View {
     GeometryReader { geo in
       let side = min(geo.size.width, geo.size.height)
       ZStack {
-        MusicArtworkPlaceholder(cornerRadius: 0)
-        RoundedRectangle(cornerRadius: max(side * 0.06, 5), style: .continuous)
-          .fill(Color.appPlaceholderSecondary.opacity(0.76))
-          .frame(width: side * sizeFraction, height: side * sizeFraction)
-          .offset(x: -side * 0.10, y: -side * 0.10)
-        VStack(alignment: .leading, spacing: max(side * 0.035, 4)) {
-          MusicSkeletonLine(width: side * 0.32, height: max(side * 0.045, 6), tone: .tertiary)
-          MusicSkeletonLine(width: side * 0.22, height: max(side * 0.035, 5), tone: .primary)
-        }
-        .offset(x: side * 0.20, y: side * 0.20)
+        LinearGradient(
+          colors: [
+            Color.appAccent,
+            Color(red: 1.0, green: 0.36, blue: 0.44),
+            Color(red: 0.34, green: 0.09, blue: 0.14),
+          ],
+          startPoint: .topLeading,
+          endPoint: .bottomTrailing
+        )
+
+        Image(systemName: "star.fill")
+          .font(.system(size: side * sizeFraction, weight: .semibold))
+          .foregroundStyle(.white)
+          .shadow(color: .black.opacity(0.18), radius: side * 0.045, x: 0, y: side * 0.025)
+          .accessibilityHidden(true)
+
+        LinearGradient(
+          colors: [
+            .white.opacity(0.22),
+            .white.opacity(0.02),
+            .black.opacity(0.18),
+          ],
+          startPoint: .topLeading,
+          endPoint: .bottomTrailing
+        )
       }
       .frame(width: geo.size.width, height: geo.size.height)
     }
@@ -28,7 +43,7 @@ struct PlaylistArtwork: View {
   var cornerRadius: CGFloat = 10
 
   var body: some View {
-    if playlist.isFavorites || !initialCoverURLs.isEmpty {
+    if playlist.isFavorites || canUseInitialArtwork {
       PlaylistArtworkContent(
         playlist: playlist,
         coverURLs: initialCoverURLs,
@@ -37,6 +52,13 @@ struct PlaylistArtwork: View {
     } else {
       PlaylistCoverWithLoader(playlist: playlist, cornerRadius: cornerRadius)
     }
+  }
+
+  private var canUseInitialArtwork: Bool {
+    if playlist.explicitCoverURL != nil {
+      return true
+    }
+    return initialCoverURLs.count >= 4
   }
 
   private var initialCoverURLs: [URL] {
@@ -172,7 +194,7 @@ extension Playlist {
     if !mosaicURLs.isEmpty {
       return Playlist.uniqueURLs(mosaicURLs, limit: 4)
     }
-    return Playlist.uniqueURLs(songListDTOs?.compactMap(\.imageURL) ?? [], limit: 4)
+    return Playlist.songArtworkURLs(songListDTOs ?? [], limit: 4)
   }
 
   static func mediaURL(from path: String) -> URL? {
@@ -185,6 +207,20 @@ extension Playlist {
     var result: [URL] = []
     for url in urls {
       guard seen.insert(url.absoluteString).inserted else { continue }
+      result.append(url)
+      if result.count == limit { break }
+    }
+    return result
+  }
+
+  static func songArtworkURLs(_ songs: [Song], limit: Int) -> [URL] {
+    var seenOwnArtwork = Set<String>()
+    var result: [URL] = []
+    for song in songs {
+      guard let url = song.imageURL else { continue }
+      if song.hasOwnArtwork {
+        guard seenOwnArtwork.insert(url.absoluteString).inserted else { continue }
+      }
       result.append(url)
       if result.count == limit { break }
     }

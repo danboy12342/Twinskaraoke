@@ -151,8 +151,8 @@ struct DownloadedSongsView: View {
   }
   @ViewBuilder
   private var mosaicArtwork: some View {
-    let arts = Array(localSongs.prefix(4).compactMap { $0.imageURL })
-    if arts.count >= 4 {
+    let arts = Playlist.songArtworkURLs(localSongs, limit: 4)
+    if arts.count > 1 {
       PlaylistMosaicArtwork(urls: arts, cornerRadius: 0, showsLoading: true)
     } else if let url = arts.first {
       LoadingImage(url: url, cornerRadius: 0)
