@@ -71,7 +71,7 @@ struct PlaylistSongCountLabel: View {
 
   private var labelText: String? {
     if let count = countStore.displayedCount(for: playlist) {
-      return "\(count) songs"
+      return LibrarySongCountText.songs(count)
     }
     return fallbackText
   }
@@ -85,6 +85,12 @@ struct PlaylistSongCountLabel: View {
     .task(id: playlist.id) {
       countStore.loadIfNeeded(for: playlist)
     }
+  }
+}
+
+enum LibrarySongCountText {
+  static func songs(_ count: Int) -> String {
+    count == 1 ? "1 song" : "\(count) songs"
   }
 }
 
@@ -891,7 +897,7 @@ enum LibraryCollectionKind: String, CaseIterable, Identifiable {
       LibrarySongCollection(
         id: key,
         title: value.title,
-        subtitle: LibrarySongCollection.songCountText(value.songs.count),
+        subtitle: LibrarySongCountText.songs(value.songs.count),
         songs: value.songs.sorted {
           $0.title.localizedStandardCompare($1.title) == .orderedAscending
         }
@@ -934,7 +940,7 @@ enum LibraryCollectionKind: String, CaseIterable, Identifiable {
       return LibrarySongCollection(
         id: "\(rawValue)::\(definition.id)",
         title: definition.title,
-        subtitle: LibrarySongCollection.songCountText(matching.count),
+        subtitle: LibrarySongCountText.songs(matching.count),
         songs: matching.sorted {
           $0.title.localizedStandardCompare($1.title) == .orderedAscending
         }
@@ -968,9 +974,6 @@ struct LibrarySongCollection: Identifiable {
     return "\(minutes) min"
   }
 
-  static func songCountText(_ count: Int) -> String {
-    count == 1 ? "1 song" : "\(count) songs"
-  }
 }
 
 struct LibraryCollectionListView: View {
@@ -1391,12 +1394,12 @@ private struct LibraryCollectionArtwork: View {
   let cornerRadius: CGFloat
 
   private var artworkURLs: [URL] {
-    Array(collection.songs.prefix(4).compactMap(\.imageURL))
+    Playlist.songArtworkURLs(collection.songs, limit: 4)
   }
 
   var body: some View {
     ZStack {
-      if artworkURLs.count >= 4 {
+      if artworkURLs.count > 1 {
         PlaylistMosaicArtwork(urls: artworkURLs, cornerRadius: cornerRadius)
       } else if let url = collection.artworkURL {
         LoadingImage(url: url, cornerRadius: 0, contentMode: .fill, showsLoading: false)

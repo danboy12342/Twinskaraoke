@@ -55,7 +55,7 @@ final class PlaylistCoverLoader: ObservableObject {
       urls.append(contentsOf: Self.extractMosaicURLs(from: loadedPlaylist))
     }
     urls.append(contentsOf: Self.extractArtworkURLs(fromSongs: fallbackSongs))
-    artworkURLs = Playlist.uniqueURLs(urls, limit: 4)
+    artworkURLs = Array(urls.prefix(4))
   }
 
   private static func extractMosaicURLs(from playlist: Playlist) -> [URL] {
@@ -68,6 +68,6 @@ final class PlaylistCoverLoader: ObservableObject {
   }
 
   private static func extractArtworkURLs(fromSongs songs: [Song]) -> [URL] {
-    Playlist.uniqueURLs(songs.compactMap(\.imageURL), limit: 4)
+    Playlist.songArtworkURLs(songs, limit: 4)
   }
 }

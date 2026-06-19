@@ -5,11 +5,13 @@ class PlaylistsViewModel: ObservableObject {
   @Published var playlists: [Playlist] = []
   @Published var favoriteSongs: [Song] = []
   @Published var isLoading = false
+  @MainActor
   var favoritesPlaylist: Playlist {
-    Playlist(
+    let favoriteCount = max(favoriteSongs.count, FavoritesManager.shared.favoriteIDs.count)
+    return Playlist(
       id: Playlist.favoritesID,
       name: "Favorites",
-      songCount: favoriteSongs.count,
+      songCount: favoriteCount,
       mosaicMedia: nil,
       songListDTOs: favoriteSongs
     )
