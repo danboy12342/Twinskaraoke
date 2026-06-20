@@ -52,7 +52,6 @@ struct LevelUpSheet: View {
       .padding(.horizontal, 24)
       .padding(.vertical, 28)
       .frame(maxWidth: 360)
-      .modifier(GlassRoundedRect(cornerRadius: 28))
       .padding(.horizontal, 24)
       .frame(maxWidth: .infinity, maxHeight: .infinity)
 

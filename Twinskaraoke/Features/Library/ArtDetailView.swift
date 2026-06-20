@@ -567,7 +567,6 @@ struct ZoomableImageViewer: View {
                 .foregroundColor(.white.opacity(0.85))
                 .frame(width: 36, height: 36)
             }
-            .modifier(GlassCircle())
             Spacer()
             Button {
               AppHaptic.selection.play()

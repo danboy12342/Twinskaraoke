@@ -1,6 +1,9 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "" : {
+
+    },
     "·" : {
       "localizations" : {
         "de" : {
@@ -418,6 +421,7 @@
       }
     },
     "%lld alert%@ enabled" : {
+      "extractionState" : "stale",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -3823,6 +3827,7 @@
       }
     },
     "Alerts" : {
+      "extractionState" : "stale",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -20250,6 +20255,7 @@
       }
     },
     "Notification Preferences" : {
+      "extractionState" : "stale",
       "localizations" : {
         "de" : {
           "stringUnit" : {

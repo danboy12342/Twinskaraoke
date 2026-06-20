@@ -316,7 +316,7 @@ private struct LibraryToolbarActions: View {
 private struct LibraryLinkSeparator: View {
   var body: some View {
     Rectangle()
-      .fill(Color.appDivider.opacity(0.6))
+      .fill(Color.appDivider)
       .frame(height: 0.5)
       .padding(.leading, 44)
   }
@@ -1435,8 +1435,13 @@ struct LibraryRow: View {
       }
 
       Spacer()
+
+      Image(systemName: "chevron.right")
+        .font(.footnote.weight(.semibold))
+        .foregroundStyle(.tertiary)
+        .accessibilityHidden(true)
     }
-    .padding(.vertical, 10)
+    .frame(minHeight: 52)
     .accessibilityElement(children: .ignore)
     .accessibilityLabel(title)
     .accessibilityValue(subtitle ?? "")

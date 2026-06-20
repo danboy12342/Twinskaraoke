@@ -346,14 +346,13 @@ struct RadioView: View {
           RemoteArtworkImage(
             url: url,
             cornerRadius: AM.Radius.hero,
-            contentMode: .fill,
-            fixedDisplaySize: CGSize(width: 390, height: 236)
+            contentMode: .fill
           )
         } else {
           artPlaceholder
         }
       }
-      .frame(maxWidth: .infinity, minHeight: 236, maxHeight: 236)
+      .frame(maxWidth: .infinity, maxHeight: .infinity)
 
       LinearGradient(
         colors: [.black.opacity(0.0), .black.opacity(0.52)],
@@ -377,7 +376,8 @@ struct RadioView: View {
       .padding(14)
       .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
     }
-    .frame(maxWidth: .infinity, minHeight: 236, maxHeight: 236)
+    .aspectRatio(16.0 / 9.0, contentMode: .fit)
+    .frame(maxWidth: .infinity)
     .clipShape(RoundedRectangle(cornerRadius: AM.Radius.hero, style: .continuous))
     // Keep the hero in one composited layer. A large clipped image plus gradient,
     // controls, and shadow is otherwise expensive during high-velocity scroll.

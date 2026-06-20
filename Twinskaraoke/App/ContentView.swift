@@ -68,6 +68,8 @@ private struct PopupSongSnapshot: Equatable {
     private static let touchRecognizerName = "Twinskaraoke.IntentionalMiniPlayerOpen"
     private static let defaultTrailingControlHitWidth: CGFloat = 132
     private static let radioTrailingControlHitWidth: CGFloat = 192
+    private static let tapMovementTolerance: CGFloat = 12
+    private var touchStartLocation: CGPoint?
     private var openIntentExpiresAt = Date.distantPast
     private var suppressOpenExpiresAt = Date.distantPast
 
@@ -96,26 +98,46 @@ private struct PopupSongSnapshot: Equatable {
       } ?? false
       guard !alreadyInstalled else { return }
 
-      let recognizer = UILongPressGestureRecognizer(target: self, action: #selector(markIntentionalMiniPlayerTouch(_:)))
+      let recognizer = UILongPressGestureRecognizer(target: self, action: #selector(trackMiniPlayerTouch(_:)))
       recognizer.name = Self.touchRecognizerName
       recognizer.minimumPressDuration = 0
       recognizer.cancelsTouchesInView = false
+      recognizer.delaysTouchesBegan = false
+      recognizer.delaysTouchesEnded = false
       recognizer.delegate = self
       popupBar.addGestureRecognizer(recognizer)
     }
 
-    @objc private func markIntentionalMiniPlayerTouch(_ recognizer: UILongPressGestureRecognizer) {
-      guard recognizer.state == .began, let popupBar = recognizer.view as? LNPopupBar else { return }
-      guard Date() > suppressOpenExpiresAt else {
-        openIntentExpiresAt = .distantPast
-        return
-      }
+    @objc private func trackMiniPlayerTouch(_ recognizer: UILongPressGestureRecognizer) {
+      guard let popupBar = recognizer.view as? LNPopupBar else { return }
       let location = recognizer.location(in: popupBar)
-      guard !isTrailingControlTouch(location, in: popupBar) else {
+
+      switch recognizer.state {
+      case .began:
+        touchStartLocation = location
+        guard Date() > suppressOpenExpiresAt,
+          !isTrailingControlTouch(location, in: popupBar)
+        else {
+          openIntentExpiresAt = .distantPast
+          return
+        }
+        openIntentExpiresAt = Date().addingTimeInterval(0.45)
+      case .changed:
+        guard let touchStartLocation else {
+          openIntentExpiresAt = .distantPast
+          return
+        }
+        if distance(from: touchStartLocation, to: location) > Self.tapMovementTolerance {
+          openIntentExpiresAt = .distantPast
+        }
+      case .ended:
+        touchStartLocation = nil
+      case .cancelled, .failed:
+        touchStartLocation = nil
         openIntentExpiresAt = .distantPast
-        return
+      default:
+        break
       }
-      openIntentExpiresAt = Date().addingTimeInterval(0.35)
     }
 
     private func isTrailingControlTouch(_ location: CGPoint, in popupBar: LNPopupBar) -> Bool {
@@ -131,6 +153,10 @@ private struct PopupSongSnapshot: Equatable {
       default:
         return location.x >= bounds.maxX - hitWidth
       }
+    }
+
+    private func distance(from start: CGPoint, to end: CGPoint) -> CGFloat {
+      hypot(end.x - start.x, end.y - start.y)
     }
 
     nonisolated func gestureRecognizer(
@@ -507,7 +533,10 @@ private struct PopupModifier: ViewModifier {
               #if canImport(UIKit)
                 let isIntentionalOpen =
                   AudioPlayerManager.shared.showFullScreen || PopupOpenIntentGate.shared.consumeIntent()
-                guard isIntentionalOpen else { return }
+                guard isIntentionalOpen else {
+                  AudioPlayerManager.shared.showFullScreen = false
+                  return
+                }
               #endif
             }
             AudioPlayerManager.shared.showFullScreen = isOpen
