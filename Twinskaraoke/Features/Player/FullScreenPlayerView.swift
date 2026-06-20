@@ -454,7 +454,6 @@ struct FullScreenPlayerView: View {
         .frame(width: 40, height: 5)
         .frame(width: 44, height: 44)
     }
-      .frame(maxWidth: .infinity)
       .buttonStyle(PressableButtonStyle(scale: 0.96, dim: 0.7, haptic: .light))
       .accessibilityLabel("Dismiss player")
       .accessibilityHint("Collapses the full-screen player.")
@@ -672,11 +671,11 @@ struct FullScreenPlayerView: View {
 
   private var playerTitleButtonBorder: some View {
     Circle()
-      .stroke(Color.white.opacity(0.08), lineWidth: 0.6)
+      .stroke(Color.primary.opacity(0.08), lineWidth: 0.6)
   }
 
   private func playerTitleIconColor(isActive _: Bool = false) -> Color {
-    Color.white.opacity(0.92)
+    Color.primary
   }
 
   // The progress bar + time labels are the only part of the player that needs

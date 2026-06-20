@@ -12,6 +12,10 @@ struct SettingsView: View {
   @AppStorage("nk.appearance") private var appearanceMode: String = AppearanceMode.system.rawValue
   @AppStorage(AppLanguage.storageKey) private var languageMode: String = AppLanguage.system.rawValue
   @AppStorage("nk.respectReducedMotion") private var respectReducedMotion: Bool = true
+  @AppStorage("nk.notifications.newSongs") private var notificationsNewSongs = true
+  @AppStorage("nk.notifications.radio") private var notificationsRadio = true
+  @AppStorage("nk.notifications.downloads") private var notificationsDownloads = true
+  @AppStorage("nk.notifications.account") private var notificationsAccount = true
   @State private var pendingAction: SettingsDestructiveAction?
   @State private var showAutoAnalyzeAlert = false
   private var visibleEQPresets: [EQPreset] {
@@ -90,6 +94,7 @@ struct SettingsView: View {
       }
       equalizerSection
       lyricsSection
+      notificationsSection
       appearanceSection
       storageSection
       developerSection
@@ -182,6 +187,35 @@ struct SettingsView: View {
       Text("Lyrics")
     } footer: {
       Text("Animated lyrics and transitions follow your motion preference.")
+    }
+  }
+
+  private var notificationsSection: some View {
+    Section {
+      NotificationPreferenceToggle(
+        title: "New Songs",
+        subtitle: "Karaoke releases and new additions",
+        isOn: $notificationsNewSongs
+      )
+      NotificationPreferenceToggle(
+        title: "Radio",
+        subtitle: "Live station changes and featured shows",
+        isOn: $notificationsRadio
+      )
+      NotificationPreferenceToggle(
+        title: "Downloads",
+        subtitle: "Completed offline saves and storage updates",
+        isOn: $notificationsDownloads
+      )
+      NotificationPreferenceToggle(
+        title: "Account",
+        subtitle: "Badges, levels, and sign-in activity",
+        isOn: $notificationsAccount
+      )
+    } header: {
+      Text("Notifications")
+    } footer: {
+      Text("Preferences are saved on this device and use the same account settings style as Music.")
     }
   }
 
@@ -597,13 +631,9 @@ private struct SettingsStorageActionRow: View {
   var body: some View {
     HStack(spacing: 10) {
       Image(systemName: symbol)
-        .font(.headline)
-        .foregroundStyle(isDestructive ? Color.appAccent : Color.white)
-        .frame(width: 44, height: 44)
-        .background(
-          RoundedRectangle(cornerRadius: 7, style: .continuous)
-            .fill(isDestructive ? Color.appAccent.opacity(0.12) : Color.appAccent)
-        )
+        .font(.headline.weight(.semibold))
+        .foregroundStyle(Color.appAccent)
+        .frame(width: 30, height: 44)
       VStack(alignment: .leading, spacing: 2) {
         Text(title)
           .font(.body)
@@ -962,5 +992,31 @@ private struct CrossfadeDurationRow: View {
       .tint(.appAccent)
     }
     .padding(.vertical, 2)
+  }
+}
+
+private struct NotificationPreferenceToggle: View {
+  let title: String
+  let subtitle: String
+  @Binding var isOn: Bool
+
+  var body: some View {
+    Toggle(isOn: $isOn) {
+      VStack(alignment: .leading, spacing: 2) {
+        Text(title)
+          .font(.body)
+          .foregroundStyle(.primary)
+        Text(subtitle)
+          .font(.caption)
+          .foregroundStyle(.secondary)
+      }
+    }
+    .tint(.appAccent)
+    .accessibilityLabel(title)
+    .accessibilityValue(isOn ? "On" : "Off")
+    .accessibilityHint(subtitle)
+    .onChange(of: isOn) { _, enabled in
+      enabled ? AppHaptic.selection.play() : AppHaptic.light.play()
+    }
   }
 }

@@ -39,11 +39,12 @@ struct PlayerArtworkView: View {
       .frame(width: size, height: size)
       .clipShape(RoundedRectangle(cornerRadius: AM.Radius.hero, style: .continuous))
       .id(song.id)
-      .scaleEffect(audioManager.isPlaying ? 1.0 : 0.88)
+      .scaleEffect(artworkScale)
       .amShadow(audioManager.isPlaying ? AM.Shadow.heroPlaying : AM.Shadow.heroIdle)
       .animation(artworkPlaybackAnimation, value: audioManager.isPlaying)
       if audioManager.isBuffering {
         bufferingOverlay
+          .scaleEffect(artworkScale)
           .transition(bufferingTransition)
       }
     }
@@ -59,6 +60,10 @@ struct PlayerArtworkView: View {
         .controlSize(.large)
     }
     .accessibilityHidden(true)
+  }
+
+  private var artworkScale: CGFloat {
+    audioManager.isPlaying ? 1.0 : 0.88
   }
 
   private var reduceMotion: Bool {
