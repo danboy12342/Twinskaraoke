@@ -103,22 +103,19 @@ final class HomeViewModel: ObservableObject {
         let source = topPicksSource
         let pageSize = topPicksPageSize
         Task { [weak self] in
-            let playlists: [Playlist]
-            switch source {
+            let playlists: [Playlist] = switch source {
             case .setlists:
-                await playlists =
-                    (try? KaraokeAPIClient.playlists(
-                        startIndex: startIndex,
-                        pageSize: pageSize,
-                        isSetlist: true,
-                        sortDescending: true
-                    )) ?? []
+                await (try? KaraokeAPIClient.playlists(
+                    startIndex: startIndex,
+                    pageSize: pageSize,
+                    isSetlist: true,
+                    sortDescending: true
+                )) ?? []
             case .publicPlaylists:
-                await playlists =
-                    (try? KaraokeAPIClient.publicPlaylists(
-                        startIndex: startIndex,
-                        pageSize: pageSize
-                    )) ?? []
+                await (try? KaraokeAPIClient.publicPlaylists(
+                    startIndex: startIndex,
+                    pageSize: pageSize
+                )) ?? []
             }
             await MainActor.run {
                 guard let self else { return }
@@ -138,13 +135,12 @@ final class HomeViewModel: ObservableObject {
     private func fetchTopPicks(startIndex: Int, completion: @escaping ([Playlist]?) -> Void) {
         let pageSize = topPicksPageSize
         Task { [weak self] in
-            let await setlists =
-                (try? KaraokeAPIClient.playlists(
-                    startIndex: startIndex,
-                    pageSize: pageSize,
-                    isSetlist: true,
-                    sortDescending: true
-                )) ?? []
+            let setlists = await (try? KaraokeAPIClient.playlists(
+                startIndex: startIndex,
+                pageSize: pageSize,
+                isSetlist: true,
+                sortDescending: true
+            )) ?? []
             if !setlists.isEmpty {
                 await MainActor.run {
                     self?.topPicksSource = .setlists
