@@ -1091,6 +1091,8 @@ final class AVEnginePlayback {
             }
         }
 
+        pendingCrossfadeURL = url
+
         let token = suppressionToken
         Task {
             do {
@@ -1105,7 +1107,6 @@ final class AVEnginePlayback {
                 self.crossfadeStartTime = Date()
                 self.crossfadeRamp = ramp
                 self.isCrossfading = true
-                self.pendingCrossfadeURL = url
                 self.crossfadeStartMainVol = self.mainPlayer.volume
                 self.crossfadeStartVocalsVol = self.stemVocals.volume
                 self.crossfadeStartInstrumentalVol = self.stemInstrumental.volume
@@ -1153,6 +1154,7 @@ final class AVEnginePlayback {
             } catch is CancellationError {
                 guard self.crossfadeLoadGeneration == loadGeneration else { return }
                 self.crossfadePreloadTask = nil
+                self.pendingCrossfadeURL = nil
                 DebugLogger.log(
                     "Crossfade begin cancelled for \(url.lastPathComponent)", category: .playback
                 )
@@ -1162,6 +1164,7 @@ final class AVEnginePlayback {
                 }
                 self.crossfadePreloadTask = nil
                 self.isCrossfading = false
+                self.pendingCrossfadeURL = nil
                 self.releasePlayerMedia(self.crossfadePlayer)
                 DebugLogger.log(
                     "Crossfade begin failed for \(url.lastPathComponent): \(error)", category: .playback
@@ -1176,6 +1179,7 @@ final class AVEnginePlayback {
         crossfadeTimer?.invalidate()
         crossfadeTimer = nil
         preloadedCrossfadeURL = nil
+        pendingCrossfadeURL = nil
         guard isCrossfading else {
             releasePlayerMedia(crossfadePlayer)
             return
@@ -1244,6 +1248,7 @@ final class AVEnginePlayback {
                         } catch is CancellationError {
                             guard self.crossfadeLoadGeneration == loadGeneration else { return }
                             self.crossfadeFinalizeTask = nil
+                            self.pendingCrossfadeURL = nil
                             DebugLogger.log(
                                 "Crossfade reload cancelled for \(url.lastPathComponent)", category: .playback
                             )
@@ -1252,6 +1257,7 @@ final class AVEnginePlayback {
                                   self.crossfadeLoadGeneration == loadGeneration
                             else { return }
                             self.crossfadeFinalizeTask = nil
+                            self.pendingCrossfadeURL = nil
                             self.releasePlayerMedia(self.crossfadePlayer)
                             DebugLogger.log(
                                 "Crossfade reload failed for \(url.lastPathComponent): \(error)",
@@ -1263,6 +1269,7 @@ final class AVEnginePlayback {
                     return
                 }
             } catch {
+                pendingCrossfadeURL = nil
                 releasePlayerMedia(crossfadePlayer)
                 onPlaybackError?(error)
             }
@@ -1302,7 +1309,9 @@ final class AVEnginePlayback {
         }
     }
 
-    private var pendingCrossfadeURL: URL?
+    private(set) var pendingCrossfadeURL: URL?
+
+    var isCrossfadePending: Bool { pendingCrossfadeURL != nil }
 
     private var preloadedCrossfadeURL: URL?
     private var crossfadePreloadURL: URL?

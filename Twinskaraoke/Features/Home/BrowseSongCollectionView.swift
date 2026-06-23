@@ -3,9 +3,8 @@ import SwiftUI
 struct BrowseSongCollectionView: View {
     let title: String
     let songs: [Song]
-    @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
+    @Environment(\.appReduceMotion) private var reduceMotion
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
-    @AppStorage("nk.respectReducedMotion") private var respectReducedMotion: Bool = true
     @State private var scrollOffset: CGFloat = 0
 
     private var showsArtwork: Bool {
@@ -19,12 +18,6 @@ struct BrowseSongCollectionView: View {
         )
     }
 
-    private var reduceMotion: Bool {
-        AppMotion.reduceMotion(
-            systemReduceMotion: systemReduceMotion,
-            respectPreference: respectReducedMotion
-        )
-    }
 
     init(title: String, songs: [Song]) {
         self.title = title

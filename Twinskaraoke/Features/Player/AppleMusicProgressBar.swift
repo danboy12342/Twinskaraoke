@@ -18,8 +18,7 @@ struct AppleMusicProgressBar: View {
     @ScaledMetric(relativeTo: .body) private var scaledActiveThumbDiameter: CGFloat = 14
     @ScaledMetric(relativeTo: .caption) private var scaledBubbleWidth: CGFloat = 64
     @ScaledMetric(relativeTo: .caption) private var scaledBubbleHeight: CGFloat = 22
-    @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
-    @AppStorage("nk.respectReducedMotion") private var respectReducedMotion: Bool = true
+    @Environment(\.appReduceMotion) private var reduceMotion
     @State private var didBeginScrubbing = false
 
     private var clampedProgress: Double {
@@ -125,13 +124,6 @@ struct AppleMusicProgressBar: View {
         progress = nextProgress
         onSeekEnd(nextProgress)
         AppHaptic.selection.play()
-    }
-
-    private var reduceMotion: Bool {
-        AppMotion.reduceMotion(
-            systemReduceMotion: systemReduceMotion,
-            respectPreference: respectReducedMotion
-        )
     }
 
     private var scrubAnimation: Animation? {

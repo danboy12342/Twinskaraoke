@@ -3,8 +3,7 @@ import SwiftUI
 struct QueueView: View {
     @EnvironmentObject var audioManager: AudioPlayerManager
     @Environment(\.dismiss) private var dismiss
-    @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
-    @AppStorage("nk.respectReducedMotion") private var respectReducedMotion: Bool = true
+    @Environment(\.appReduceMotion) private var reduceMotion
     @State private var showCurrentAddToPlaylist = false
 
     private var queueToggleAnimation: Animation? {
@@ -37,13 +36,6 @@ struct QueueView: View {
 
     private var clearButtonTransition: AnyTransition {
         reduceMotion ? .opacity : .opacity.combined(with: .scale(scale: 0.96))
-    }
-
-    private var reduceMotion: Bool {
-        AppMotion.reduceMotion(
-            systemReduceMotion: systemReduceMotion,
-            respectPreference: respectReducedMotion
-        )
     }
 
     var body: some View {
@@ -171,10 +163,10 @@ struct QueueView: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text("Playing Next")
                     .font(.headline.weight(.semibold))
-                    .foregroundStyle(Color.primary)
+                    .foregroundStyle(.primary)
                 Text(upNextCount == 1 ? "1 song queued" : "\(upNextCount) songs queued")
                     .font(.caption)
-                    .foregroundStyle(Color.secondary)
+                    .foregroundStyle(.secondary)
                     .monospacedDigit()
             }
             .accessibilityElement(children: .combine)
@@ -237,11 +229,11 @@ struct QueueView: View {
                         .textCase(.uppercase)
                     Text(current.title)
                         .font(.headline.weight(.semibold))
-                        .foregroundStyle(Color.primary)
+                        .foregroundStyle(.primary)
                         .lineLimit(1)
                     Text(current.displayArtist)
                         .font(.subheadline)
-                        .foregroundStyle(Color.secondary)
+                        .foregroundStyle(.secondary)
                         .lineLimit(1)
                 }
                 Spacer()
@@ -340,11 +332,11 @@ struct QueueRow: View {
                     VStack(alignment: .leading, spacing: 3) {
                         Text(song.title)
                             .font(.body.weight(.medium))
-                            .foregroundStyle(Color.primary)
+                            .foregroundStyle(.primary)
                             .lineLimit(1)
                         Text(song.displayArtist)
                             .font(.subheadline)
-                            .foregroundStyle(Color.secondary)
+                            .foregroundStyle(.secondary)
                             .lineLimit(1)
                     }
                     Spacer(minLength: 12)
@@ -382,7 +374,7 @@ struct QueueRow: View {
             } label: {
                 Label("More actions", systemImage: "ellipsis")
                     .font(.headline.weight(.semibold))
-                    .foregroundStyle(Color.secondary)
+                    .foregroundStyle(.secondary)
                     .labelStyle(.iconOnly)
                     .frame(width: 44, height: 44)
                     .contentShape(Circle())
@@ -414,8 +406,7 @@ struct QueueModeButton: View {
     let accessibilityLabel: String
     let accessibilityValue: String
     let action: () -> Void
-    @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
-    @AppStorage("nk.respectReducedMotion") private var respectReducedMotion: Bool = true
+    @Environment(\.appReduceMotion) private var reduceMotion
 
     var body: some View {
         Button(action: action) {
@@ -428,7 +419,7 @@ struct QueueModeButton: View {
                 }
             }
             .font(.headline.weight(.semibold))
-            .foregroundStyle(isActive ? Color.appControlActiveForeground : Color.primary)
+            .foregroundStyle(isActive ? Color.appControlActiveForeground : .primary)
             .frame(maxWidth: .infinity)
             .frame(minHeight: 44)
             .modifier(QueueModeBackground(isActive: isActive))
@@ -439,12 +430,6 @@ struct QueueModeButton: View {
         .accessibilityHint("Double tap to toggle.")
     }
 
-    private var reduceMotion: Bool {
-        AppMotion.reduceMotion(
-            systemReduceMotion: systemReduceMotion,
-            respectPreference: respectReducedMotion
-        )
-    }
 }
 
 private struct QueueModeBackground: ViewModifier {

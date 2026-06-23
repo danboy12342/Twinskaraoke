@@ -474,7 +474,7 @@ private struct ToolbarIconLabel: View {
         Image(systemName: systemImage)
             .font(.headline)
             .symbolRenderingMode(.monochrome)
-            .foregroundStyle(isEnabled ? foregroundColor : Color.secondary)
+            .foregroundStyle(isEnabled ? foregroundColor : .secondary)
     }
 
     private var iconHorizontalOffset: CGFloat {

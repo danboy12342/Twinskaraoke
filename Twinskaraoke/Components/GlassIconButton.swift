@@ -47,6 +47,6 @@ struct GlassCheckmarkButton: View {
         Label(accessibilityLabel, systemImage: "checkmark")
             .labelStyle(.iconOnly)
             .font(.system(size: iconSize, weight: .semibold))
-            .foregroundStyle(isEnabled ? Color.appGlassForeground : Color.secondary)
+            .foregroundStyle(isEnabled ? Color.appGlassForeground : .secondary)
     }
 }

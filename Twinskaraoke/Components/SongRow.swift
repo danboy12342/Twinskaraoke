@@ -120,7 +120,7 @@ struct SongRow: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(song.title)
                     .font(size.titleFont)
-                    .foregroundStyle(isCurrentSong ? Color.appAccent : Color.primary)
+                    .foregroundStyle(isCurrentSong ? Color.appAccent : .primary)
                     .lineLimit(1)
                 Text(song.displayArtist)
                     .font(size.subtitleFont)
@@ -403,7 +403,7 @@ struct SongContextPreview: View {
     let song: Song
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        ContextPreviewCard {
             RemoteArtworkImage(
                 url: song.imageURL,
                 cornerRadius: 10,
@@ -412,6 +412,7 @@ struct SongContextPreview: View {
             .aspectRatio(1, contentMode: .fill)
             .frame(width: 220, height: 220)
             .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+        } label: {
             VStack(alignment: .leading, spacing: 3) {
                 Text(song.title)
                     .font(.headline)
@@ -423,9 +424,6 @@ struct SongContextPreview: View {
                     .lineLimit(2)
             }
         }
-        .padding(16)
-        .frame(width: 252, alignment: .leading)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
     }
 }
 

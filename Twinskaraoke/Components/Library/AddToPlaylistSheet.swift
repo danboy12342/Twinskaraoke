@@ -3,21 +3,13 @@ import SwiftUI
 struct AddToPlaylistSheet: View {
     let song: Song
     @Environment(\.dismiss) private var dismiss
-    @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
-    @AppStorage("nk.respectReducedMotion") private var respectReducedMotion: Bool = true
+    @Environment(\.appReduceMotion) private var reduceMotion
     @ObservedObject private var manager = UserPlaylistsManager.shared
 
     @State private var inFlight: Set<String> = []
     @State private var added: Set<String> = []
     @State private var failed: Set<String> = []
     @State private var showCreatePlaylist = false
-
-    private var reduceMotion: Bool {
-        AppMotion.reduceMotion(
-            systemReduceMotion: systemReduceMotion,
-            respectPreference: respectReducedMotion
-        )
-    }
 
     var body: some View {
         NavigationStack {
@@ -336,11 +328,11 @@ private struct AddToPlaylistPreview: View {
     let playlist: UserPlaylist
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        ContextPreviewCard {
             PlaylistArtwork(playlist: playlist.asPlaylist(), cornerRadius: 10)
                 .frame(width: 220, height: 220)
                 .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-
+        } label: {
             VStack(alignment: .leading, spacing: 3) {
                 Text(playlist.isPublic ? "Public Playlist" : "Private Playlist")
                     .font(.caption.bold())
@@ -355,8 +347,5 @@ private struct AddToPlaylistPreview: View {
                     .foregroundStyle(.secondary)
             }
         }
-        .padding(16)
-        .frame(width: 252, alignment: .leading)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
     }
 }

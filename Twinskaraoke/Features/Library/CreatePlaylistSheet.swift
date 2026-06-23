@@ -2,8 +2,7 @@ import SwiftUI
 
 struct CreatePlaylistSheet: View {
     @Environment(\.dismiss) private var dismiss
-    @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
-    @AppStorage("nk.respectReducedMotion") private var respectReducedMotion: Bool = true
+    @Environment(\.appReduceMotion) private var reduceMotion
     @ObservedObject private var manager = UserPlaylistsManager.shared
 
     @State private var name = ""
@@ -25,12 +24,6 @@ struct CreatePlaylistSheet: View {
         !trimmedName.isEmpty && !isSaving
     }
 
-    private var reduceMotion: Bool {
-        AppMotion.reduceMotion(
-            systemReduceMotion: systemReduceMotion,
-            respectPreference: respectReducedMotion
-        )
-    }
 
     var body: some View {
         NavigationStack {

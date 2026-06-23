@@ -2,16 +2,9 @@ import SwiftUI
 
 struct RandomSongsView: View {
     @StateObject private var viewModel = RandomSongsViewModel()
-    @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
+    @Environment(\.appReduceMotion) private var reduceMotion
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
-    @AppStorage("nk.respectReducedMotion") private var respectReducedMotion: Bool = true
 
-    private var reduceMotion: Bool {
-        AppMotion.reduceMotion(
-            systemReduceMotion: systemReduceMotion,
-            respectPreference: respectReducedMotion
-        )
-    }
 
     private var coverURLs: [URL] {
         Playlist.songArtworkURLs(viewModel.songs, limit: 4)
@@ -294,7 +287,7 @@ private struct RandomSongsToolbarButtonLabel: View {
         Image(systemName: systemImage)
             .font(.headline)
             .symbolRenderingMode(.monochrome)
-            .foregroundStyle(isEnabled ? Color.appAccent : Color.secondary)
+            .foregroundStyle(isEnabled ? Color.appAccent : .secondary)
     }
 }
 

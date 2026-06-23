@@ -322,17 +322,10 @@ private struct VideoGalleryStateView: View {
     let message: String
     let buttonTitle: String
     let onRefresh: () -> Void
-    @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
-    @AppStorage("nk.respectReducedMotion") private var respectReducedMotion: Bool = true
+    @Environment(\.appReduceMotion) private var reduceMotion
     @State private var isPulsing = false
     @State private var hasAppeared = false
 
-    private var reduceMotion: Bool {
-        AppMotion.reduceMotion(
-            systemReduceMotion: systemReduceMotion,
-            respectPreference: respectReducedMotion
-        )
-    }
 
     var body: some View {
         VStack(spacing: AM.Spacing.xl) {
@@ -545,17 +538,10 @@ struct VideoPlayerScreen: View {
     @State private var player: AVPlayer?
     @State private var appeared = false
     @StateObject private var similar = SimilarVideosViewModel()
-    @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
-    @AppStorage("nk.respectReducedMotion") private var respectReducedMotion: Bool = true
+    @Environment(\.appReduceMotion) private var reduceMotion
     private let audioWillPlay = NotificationCenter.default.publisher(
         for: MediaPlaybackCoordinator.audioWillPlay
     )
-    private var reduceMotion: Bool {
-        AppMotion.reduceMotion(
-            systemReduceMotion: systemReduceMotion,
-            respectPreference: respectReducedMotion
-        )
-    }
 
     var body: some View {
         ScrollView {

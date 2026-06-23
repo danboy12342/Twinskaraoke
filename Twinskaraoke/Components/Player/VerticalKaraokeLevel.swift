@@ -4,8 +4,7 @@ struct VerticalKaraokeLevel: View {
     @Binding var value: Double
     var enabled: Bool = true
     var onSet: (Double) -> Void = { _ in }
-    @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
-    @AppStorage("nk.respectReducedMotion") private var respectReducedMotion: Bool = true
+    @Environment(\.appReduceMotion) private var reduceMotion
 
     var body: some View {
         GeometryReader { geo in
@@ -30,13 +29,6 @@ struct VerticalKaraokeLevel: View {
                     }
             )
         }
-    }
-
-    private var reduceMotion: Bool {
-        AppMotion.reduceMotion(
-            systemReduceMotion: systemReduceMotion,
-            respectPreference: respectReducedMotion
-        )
     }
 
     private var levelAnimation: Animation? {

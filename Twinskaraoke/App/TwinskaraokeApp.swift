@@ -26,6 +26,7 @@ struct TwinskaraokeApp: App {
             ContentView()
                 .preferredColorScheme(resolvedColorScheme)
                 .environment(\.locale, Locale(identifier: resolvedLanguage.localeIdentifier))
+                .injectReduceMotion()
                 .tint(.appAccent)
         }
     }

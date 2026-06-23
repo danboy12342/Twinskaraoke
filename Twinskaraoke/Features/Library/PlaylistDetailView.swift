@@ -3,9 +3,8 @@ import SwiftUI
 
 struct PlaylistDetailView: View {
     let playlist: Playlist
-    @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
+    @Environment(\.appReduceMotion) private var reduceMotion
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
-    @AppStorage("nk.respectReducedMotion") private var respectReducedMotion: Bool = true
     @StateObject private var loader = PlaylistDetailViewModel()
     @ObservedObject private var favorites = FavoritesManager.shared
     @ObservedObject private var fallbackArt = FallbackArtProvider.shared
@@ -17,12 +16,6 @@ struct PlaylistDetailView: View {
         )
     }
 
-    private var reduceMotion: Bool {
-        AppMotion.reduceMotion(
-            systemReduceMotion: systemReduceMotion,
-            respectPreference: respectReducedMotion
-        )
-    }
 
     var body: some View {
         let songs: [Song] = loader.songs ?? playlist.songListDTOs ?? []
@@ -324,11 +317,11 @@ private struct PlaylistDetailContextPreview: View {
     let coverURLs: [URL]
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        ContextPreviewCard {
             PlaylistArtworkContent(playlist: playlist, coverURLs: coverURLs, cornerRadius: 10)
                 .frame(width: 220, height: 220)
                 .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-
+        } label: {
             VStack(alignment: .leading, spacing: 3) {
                 Text(playlist.isFavorites ? "Favorites" : "Playlist")
                     .font(.caption.bold())
@@ -344,9 +337,6 @@ private struct PlaylistDetailContextPreview: View {
                     .lineLimit(1)
             }
         }
-        .padding(16)
-        .frame(width: 252, alignment: .leading)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
     }
 }
 

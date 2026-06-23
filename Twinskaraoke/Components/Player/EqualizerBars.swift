@@ -2,8 +2,7 @@ import SwiftUI
 
 struct EqualizerBars: View {
     let isAnimating: Bool
-    @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
-    @AppStorage("nk.respectReducedMotion") private var respectReducedMotion: Bool = true
+    @Environment(\.appReduceMotion) private var reduceMotion
     @State private var startDate = Date()
     @State private var isVisible: Bool = false
 
@@ -46,13 +45,6 @@ struct EqualizerBars: View {
         let offsets: [Double] = [0.0, 0.45, 0.9]
         let v = (sin(elapsed * speeds[index] + offsets[index] * .pi * 2) + 1) / 2
         return total * (0.3 + 0.7 * v)
-    }
-
-    private var reduceMotion: Bool {
-        AppMotion.reduceMotion(
-            systemReduceMotion: systemReduceMotion,
-            respectPreference: respectReducedMotion
-        )
     }
 
     private var shouldAnimateBars: Bool {

@@ -23,6 +23,50 @@ enum DisplayRefreshRate {
   }
 }
 
+// MARK: - Reduce Motion EnvironmentKey
+
+struct AppReduceMotionKey: EnvironmentKey {
+    static let defaultValue: Bool = false
+}
+
+extension EnvironmentValues {
+    /// Whether reduce-motion should be respected, combining the system
+    /// accessibility setting with the user's in-app preference.
+    var appReduceMotion: Bool {
+        get { self[AppReduceMotionKey.self] }
+        set { self[AppReduceMotionKey.self] = newValue }
+    }
+}
+
+extension View {
+    /// Injects the computed `appReduceMotion` flag into the environment so
+    /// child views can read `@Environment(\.appReduceMotion)` instead of
+    /// repeating the `@AppStorage + @Environment + AppMotion.reduceMotion`
+    /// boilerplate.  Apply once at the root of each view tree.
+    func injectReduceMotion() -> some View {
+        ReduceMotionInjector(content: self)
+    }
+}
+
+private struct ReduceMotionInjector: View {
+    let content: AnyView
+    @AppStorage("nk.respectReducedMotion") private var respectReducedMotion: Bool = true
+    @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
+
+    init(content: some View) {
+        self.content = AnyView(content)
+    }
+
+    var body: some View {
+        content.environment(\.appReduceMotion, AppMotion.reduceMotion(
+            systemReduceMotion: systemReduceMotion,
+            respectPreference: respectReducedMotion
+        ))
+    }
+}
+
+// MARK: - AppMotion
+
 enum AppMotion {
   static func reduceMotion(systemReduceMotion: Bool, respectPreference: Bool) -> Bool {
     respectPreference && systemReduceMotion

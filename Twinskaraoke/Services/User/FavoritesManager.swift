@@ -8,13 +8,6 @@ final class FavoritesManager: ObservableObject {
     @Published private(set) var favoriteIDs: Set<String> = []
     private var inFlight: Set<String> = []
     private var loaded = false
-    private static var base: String {
-        "\(StorageHost.api)/api/user/favorites"
-    }
-
-    private var token: String? {
-        UserDefaults.standard.string(forKey: "nk.token")
-    }
 
     func isFavorite(_ songID: String) -> Bool {
         favoriteIDs.contains(songID)
@@ -42,9 +35,8 @@ final class FavoritesManager: ObservableObject {
             favoriteIDs.insert(songID)
         }
         inFlight.insert(songID)
-        let token = token
         Task {
-            let ok = await send(songID: songID, add: !wasFavorite, token: token)
+            let ok = await send(songID: songID)
             await MainActor.run {
                 inFlight.remove(songID)
                 if !ok {
@@ -59,31 +51,20 @@ final class FavoritesManager: ObservableObject {
     }
 
     private func load() async {
-        guard let token else { return }
-        guard let url = URL(string: Self.base) else { return }
-        var req = URLRequest(url: url)
-        req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-        guard let (data, resp) = try? await URLSession.shared.data(for: req),
-              let http = resp as? HTTPURLResponse, http.statusCode == 200
+        guard UserDefaults.standard.string(forKey: "nk.token") != nil else { return }
+        guard let req = try? KaraokeAPIClient.request(path: "/api/user/favorites"),
+              let data = try? await KaraokeAPIClient.data(for: req)
         else { return }
         let ids = Self.parseIDs(from: data)
         await MainActor.run { self.favoriteIDs = Set(ids) }
     }
 
-    private func send(songID: String, add _: Bool, token: String?) async -> Bool {
-        let encoded =
-            songID.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? songID
-        guard let url = URL(string: "\(Self.base)/\(encoded)") else { return false }
-        var req = URLRequest(url: url)
-        req.httpMethod = "PUT"
-        if let token, !token.isEmpty {
-            req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-        }
-        GuestIdentity.applyIfNeeded(to: &req)
-        guard let (_, resp) = try? await URLSession.shared.data(for: req),
-              let http = resp as? HTTPURLResponse
+    private func send(songID: String) async -> Bool {
+        let encoded = songID.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? songID
+        guard var req = try? KaraokeAPIClient.request(path: "/api/user/favorites/\(encoded)")
         else { return false }
-        return (200 ..< 300).contains(http.statusCode)
+        req.httpMethod = "PUT"
+        return (try? await KaraokeAPIClient.data(for: req)) != nil
     }
 
     private static func parseIDs(from data: Data) -> [String] {

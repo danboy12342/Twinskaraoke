@@ -13,7 +13,7 @@ struct FavoritesArtworkTile: View {
 
                 Image(systemName: "star.fill")
                     .font(.system(size: side * sizeFraction, weight: .semibold))
-                    .foregroundStyle(Color(red: 1.0, green: 0.11, blue: 0.22))
+                    .foregroundStyle(Color.appAccent)
                     .accessibilityHidden(true)
             }
             .frame(width: geo.size.width, height: geo.size.height)

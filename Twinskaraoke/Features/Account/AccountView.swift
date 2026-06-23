@@ -131,7 +131,6 @@ struct AccountView: View {
                     showQRApprove = true
                 } label: {
                     Label("Sign in on web", systemImage: "qrcode.viewfinder")
-                        .foregroundStyle(.primary)
                 }
                 .buttonStyle(PressableButtonStyle(scale: 0.98, dim: 0.82))
                 .accessibilityLabel("Sign in on web")
@@ -238,7 +237,7 @@ private struct SignInPromptRow: View {
         HStack(spacing: 14) {
             Image(systemName: "person.fill")
                 .font(.largeTitle)
-                .foregroundStyle(Color(.systemGray3))
+                .foregroundStyle(.tertiary)
                 .frame(width: 64, height: 64)
             VStack(alignment: .leading, spacing: 3) {
                 Text("Sign In")

@@ -311,8 +311,7 @@ struct ContentView: View {
 
 private struct PopupHostView: View {
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
-    @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
-    @AppStorage("nk.respectReducedMotion") private var respectReducedMotion: Bool = true
+    @Environment(\.appReduceMotion) private var reduceMotion
     @State private var selectedSection: RootSection? = .home
     @State private var showCaptcha = false
     var body: some View {
@@ -441,12 +440,6 @@ private struct PopupHostView: View {
         reduceMotion ? .opacity : .opacity.combined(with: .move(edge: .trailing))
     }
 
-    private var reduceMotion: Bool {
-        AppMotion.reduceMotion(
-            systemReduceMotion: systemReduceMotion,
-            respectPreference: respectReducedMotion
-        )
-    }
 
     private func configureTabBarAppearance() {
         #if canImport(UIKit)

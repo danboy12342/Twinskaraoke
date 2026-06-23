@@ -7,8 +7,7 @@ struct MarqueeText: View {
     var speed: CGFloat = 35
     var gap: CGFloat = 48
     var startDelay: Double = 1.2
-    @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
-    @AppStorage("nk.respectReducedMotion") private var respectReducedMotion: Bool = true
+    @Environment(\.appReduceMotion) private var reduceMotion
     @State private var textSize: CGSize = .zero
     @State private var containerWidth: CGFloat = 0
     @State private var phase: CGFloat = 0
@@ -109,13 +108,6 @@ struct MarqueeText: View {
                 try? await Task.sleep(nanoseconds: UInt64(startDelay * 1_000_000_000))
             }
         }
-    }
-
-    private var reduceMotion: Bool {
-        AppMotion.reduceMotion(
-            systemReduceMotion: systemReduceMotion,
-            respectPreference: respectReducedMotion
-        )
     }
 }
 

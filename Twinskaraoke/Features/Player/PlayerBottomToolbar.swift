@@ -20,7 +20,7 @@ struct PlayerBottomToolbar: View {
                 } label: {
                     Image(systemName: "quote.bubble")
                         .font(.title3)
-                        .foregroundStyle(showLyrics ? Color.primary : Color.secondary)
+                        .foregroundStyle(showLyrics ? .primary : .secondary)
                         .frame(width: 44, height: 44)
                         .frame(maxWidth: .infinity)
                 }

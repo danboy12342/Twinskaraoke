@@ -9,18 +9,10 @@ struct LyricsView: View {
     var hasNoLyrics: Bool = false
     let onSeek: (TimeInterval) -> Void
     var onRetry: (() -> Void)?
-    @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
-    @AppStorage("nk.respectReducedMotion") private var respectReducedMotion: Bool = true
+    @Environment(\.appReduceMotion) private var reduceMotion
 
     private var scrollAnimation: Animation? {
         reduceMotion ? nil : .spring(response: 0.6, dampingFraction: 0.85)
-    }
-
-    private var reduceMotion: Bool {
-        AppMotion.reduceMotion(
-            systemReduceMotion: systemReduceMotion,
-            respectPreference: respectReducedMotion
-        )
     }
 
     private var currentIndex: Int {
@@ -144,8 +136,7 @@ struct LyricsBouncingDots: View {
     var progress: Double?
     var dotSize: CGFloat = 9
     var color: Color = .primary
-    @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
-    @AppStorage("nk.respectReducedMotion") private var respectReducedMotion: Bool = true
+    @Environment(\.appReduceMotion) private var reduceMotion
     @State private var loopPhase: Date = .now
     private let loopCycle: TimeInterval = 1.6
     var body: some View {
@@ -223,12 +214,6 @@ struct LyricsBouncingDots: View {
         return 1.0
     }
 
-    private var reduceMotion: Bool {
-        AppMotion.reduceMotion(
-            systemReduceMotion: systemReduceMotion,
-            respectPreference: respectReducedMotion
-        )
-    }
 }
 
 private struct LyricLineRow: View {
@@ -239,8 +224,7 @@ private struct LyricLineRow: View {
     let showTranslation: Bool
     let nextLineTime: TimeInterval?
     let onSeek: (TimeInterval) -> Void
-    @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
-    @AppStorage("nk.respectReducedMotion") private var respectReducedMotion: Bool = true
+    @Environment(\.appReduceMotion) private var reduceMotion
     private var isCurrent: Bool {
         index == currentIndex
     }
@@ -366,12 +350,6 @@ private struct LyricLineRow: View {
         return max(0.5, 1.0 - Double(distance - 2) * 0.1)
     }
 
-    private var reduceMotion: Bool {
-        AppMotion.reduceMotion(
-            systemReduceMotion: systemReduceMotion,
-            respectPreference: respectReducedMotion
-        )
-    }
 }
 
 private func formattedLyricTime(_ seconds: TimeInterval) -> String {
@@ -437,8 +415,7 @@ private struct IntroDots: View {
     let isActive: Bool
     let startTime: TimeInterval
     let currentTime: TimeInterval
-    @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
-    @AppStorage("nk.respectReducedMotion") private var respectReducedMotion: Bool = true
+    @Environment(\.appReduceMotion) private var reduceMotion
     private var progress: Double {
         guard startTime > 0 else { return 1 }
         return max(0, min(1, currentTime / startTime))
@@ -455,10 +432,4 @@ private struct IntroDots: View {
         .animation(reduceMotion ? nil : .easeInOut(duration: 0.4), value: isActive)
     }
 
-    private var reduceMotion: Bool {
-        AppMotion.reduceMotion(
-            systemReduceMotion: systemReduceMotion,
-            respectPreference: respectReducedMotion
-        )
-    }
 }

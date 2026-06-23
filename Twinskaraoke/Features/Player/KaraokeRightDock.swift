@@ -3,8 +3,7 @@ import SwiftUI
 struct KaraokeRightDock: View {
     @EnvironmentObject var audioManager: AudioPlayerManager
     @ObservedObject private var vocalSeparator = VocalSeparator.shared
-    @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
-    @AppStorage("nk.respectReducedMotion") private var respectReducedMotion: Bool = true
+    @Environment(\.appReduceMotion) private var reduceMotion
     @Binding var showKaraokeControls: Bool
 
     private var currentSongID: String? {
@@ -92,7 +91,7 @@ struct KaraokeRightDock: View {
 
                 Image(systemName: audioManager.karaokeMode ? "mic.fill" : "mic")
                     .font(.headline)
-                    .foregroundStyle(audioManager.karaokeMode ? Color.appAccent : Color.primary.opacity(0.85))
+                    .foregroundStyle(audioManager.karaokeMode ? Color.appAccent : .secondary)
             }
             .frame(width: 44, height: 44)
             .modifier(GlassCircle())
@@ -149,13 +148,6 @@ struct KaraokeRightDock: View {
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Preparing karaoke")
         .accessibilityValue(processingPercentText)
-    }
-
-    private var reduceMotion: Bool {
-        AppMotion.reduceMotion(
-            systemReduceMotion: systemReduceMotion,
-            respectPreference: respectReducedMotion
-        )
     }
 
     private var dockAnimation: Animation? {

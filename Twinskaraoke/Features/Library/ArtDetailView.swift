@@ -3,8 +3,7 @@ import SwiftUI
 struct ArtDetailView: View {
     let art: GalleryArt
     let artist: GalleryArtist
-    @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
-    @AppStorage("nk.respectReducedMotion") private var respectReducedMotion: Bool = true
+    @Environment(\.appReduceMotion) private var reduceMotion
     @State private var showFullScreen = false
     @State private var saveStatus: ArtworkSaveStatus = .idle
     @State private var appeared = false
@@ -12,12 +11,6 @@ struct ArtDetailView: View {
         art.fullHDImageURL ?? art.imageURL
     }
 
-    private var reduceMotion: Bool {
-        AppMotion.reduceMotion(
-            systemReduceMotion: systemReduceMotion,
-            respectPreference: respectReducedMotion
-        )
-    }
 
     var body: some View {
         ScrollView {
@@ -446,7 +439,7 @@ private struct ArtworkDetailSection: View {
                 .textCase(.uppercase)
             Text(text)
                 .font(.system(size: 15, weight: .regular))
-                .foregroundStyle(.primary.opacity(0.88))
+                .foregroundStyle(.primary)
                 .fixedSize(horizontal: false, vertical: true)
         }
         .padding(14)
@@ -515,19 +508,12 @@ struct ZoomableImageViewer: View {
     var title: String?
     var subtitle: String?
     @Environment(\.dismiss) private var dismiss
-    @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
-    @AppStorage("nk.respectReducedMotion") private var respectReducedMotion: Bool = true
+    @Environment(\.appReduceMotion) private var reduceMotion
     @State private var scale: CGFloat = 1
     @State private var lastScale: CGFloat = 1
     @State private var offset: CGSize = .zero
     @State private var lastOffset: CGSize = .zero
     @State private var showOverlay = true
-    private var reduceMotion: Bool {
-        AppMotion.reduceMotion(
-            systemReduceMotion: systemReduceMotion,
-            respectPreference: respectReducedMotion
-        )
-    }
 
     var body: some View {
         ZStack {

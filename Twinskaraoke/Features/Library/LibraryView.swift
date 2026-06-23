@@ -74,9 +74,8 @@ struct LibraryView: View {
     @ObservedObject private var savedStore = SavedPlaylistsStore.shared
     @ObservedObject private var addedTracker = RecentlyAddedTracker.shared
     @ObservedObject private var favorites = FavoritesManager.shared
-    @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
+    @Environment(\.appReduceMotion) private var reduceMotion
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
-    @AppStorage("nk.respectReducedMotion") private var respectReducedMotion: Bool = true
     @State private var showCreateSheet = false
     @State private var path = NavigationPath()
     let cols = AM.Layout.playlistGridColumns
@@ -85,12 +84,6 @@ struct LibraryView: View {
         horizontalSizeClass == .compact
     }
 
-    private var reduceMotion: Bool {
-        AppMotion.reduceMotion(
-            systemReduceMotion: systemReduceMotion,
-            respectPreference: respectReducedMotion
-        )
-    }
 
     var body: some View {
         let recentlyAddedSongs = Array(recentSongsViewModel.songs.prefix(12))
@@ -602,15 +595,8 @@ final class LibrarySongsViewModel: ObservableObject {
 
 struct LibrarySongsView: View {
     @StateObject private var viewModel = LibrarySongsViewModel()
-    @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
-    @AppStorage("nk.respectReducedMotion") private var respectReducedMotion: Bool = true
+    @Environment(\.appReduceMotion) private var reduceMotion
 
-    private var reduceMotion: Bool {
-        AppMotion.reduceMotion(
-            systemReduceMotion: systemReduceMotion,
-            respectPreference: respectReducedMotion
-        )
-    }
 
     private var listAnimation: Animation? {
         reduceMotion ? nil : AppMotion.spring(response: 0.34, dampingFraction: 0.84)
@@ -837,18 +823,11 @@ struct PlaylistsGridScreen: View {
     @ObservedObject var savedStore: SavedPlaylistsStore = .shared
     @ObservedObject private var userManager = UserPlaylistsManager.shared
     @ObservedObject private var favorites = FavoritesManager.shared
-    @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
-    @AppStorage("nk.respectReducedMotion") private var respectReducedMotion: Bool = true
+    @Environment(\.appReduceMotion) private var reduceMotion
     @State private var showCreateSheet = false
     @State private var searchText = ""
     let cols = AM.Layout.playlistGridColumns
 
-    private var reduceMotion: Bool {
-        AppMotion.reduceMotion(
-            systemReduceMotion: systemReduceMotion,
-            respectPreference: respectReducedMotion
-        )
-    }
 
     private var isLoggedIn: Bool {
         UserDefaults.standard.string(forKey: "nk.token") != nil
@@ -1003,9 +982,10 @@ struct PlaylistContextPreview: View {
     let playlist: Playlist
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        ContextPreviewCard {
             PlaylistArtwork(playlist: playlist, cornerRadius: 12)
                 .frame(width: 220, height: 220)
+        } label: {
             VStack(alignment: .leading, spacing: 3) {
                 Text(playlist.name)
                     .font(AM.Font.tileTitle)
@@ -1017,9 +997,6 @@ struct PlaylistContextPreview: View {
                     .lineLimit(1)
             }
         }
-        .padding(16)
-        .frame(width: 252, alignment: .leading)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
     }
 }
 

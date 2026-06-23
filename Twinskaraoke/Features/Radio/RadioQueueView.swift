@@ -4,8 +4,7 @@ struct RadioQueueView: View {
     @ObservedObject var radio = RadioController.shared
     @EnvironmentObject var audioManager: AudioPlayerManager
     @Environment(\.dismiss) private var dismiss
-    @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
-    @AppStorage("nk.respectReducedMotion") private var respectReducedMotion: Bool = true
+    @Environment(\.appReduceMotion) private var reduceMotion
 
     private var currentSong: RadioNowPlaying.SongInfo? {
         radio.nowPlaying?.nowPlaying?.song
@@ -215,12 +214,6 @@ struct RadioQueueView: View {
         reduceMotion ? nil : AppMotion.spring(response: response, dampingFraction: 0.84)
     }
 
-    private var reduceMotion: Bool {
-        AppMotion.reduceMotion(
-            systemReduceMotion: systemReduceMotion,
-            respectPreference: respectReducedMotion
-        )
-    }
 
     private var heroTransition: AnyTransition {
         reduceMotion ? .opacity : .opacity.combined(with: .scale(scale: 0.98))

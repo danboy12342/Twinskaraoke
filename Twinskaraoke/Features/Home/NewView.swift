@@ -4,15 +4,7 @@ struct NewView: View {
     @StateObject var viewModel = HomeViewModel()
     @StateObject private var recentlyPlayed = RecentlyPlayedStore.shared
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
-    @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
-    @AppStorage("nk.respectReducedMotion") private var respectReducedMotion: Bool = true
-
-    private var reduceMotion: Bool {
-        AppMotion.reduceMotion(
-            systemReduceMotion: systemReduceMotion,
-            respectPreference: respectReducedMotion
-        )
-    }
+    @Environment(\.appReduceMotion) private var reduceMotion
 
     private var loadingAnimation: Animation? {
         reduceMotion ? nil : AppMotion.spring(response: 0.38, dampingFraction: 0.84)

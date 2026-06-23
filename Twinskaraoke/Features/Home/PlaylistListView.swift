@@ -6,8 +6,7 @@ struct PlaylistListView: View {
     let playlists: [Playlist]
     var apiURL: ((Int, Int) -> String)?
     let cols = AM.Layout.playlistGridColumns
-    @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
-    @AppStorage("nk.respectReducedMotion") private var respectReducedMotion: Bool = true
+    @Environment(\.appReduceMotion) private var reduceMotion
     @StateObject private var loader = PlaylistListLoader()
     @State private var searchText = ""
     private var allPlaylists: [Playlist] {
@@ -22,12 +21,6 @@ struct PlaylistListView: View {
         }
     }
 
-    private var reduceMotion: Bool {
-        AppMotion.reduceMotion(
-            systemReduceMotion: systemReduceMotion,
-            respectPreference: respectReducedMotion
-        )
-    }
 
     var body: some View {
         ScrollView {

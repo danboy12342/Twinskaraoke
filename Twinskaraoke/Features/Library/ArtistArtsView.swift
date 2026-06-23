@@ -2,8 +2,7 @@ import SwiftUI
 
 struct ArtistArtsView: View {
     let artist: GalleryArtist
-    @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
-    @AppStorage("nk.respectReducedMotion") private var respectReducedMotion: Bool = true
+    @Environment(\.appReduceMotion) private var reduceMotion
     private let cols = AM.Layout.adaptiveGridColumns(minimum: 148, spacing: 10)
     private var arts: [GalleryArt] {
         artist.arts ?? []
@@ -17,12 +16,6 @@ struct ArtistArtsView: View {
         arts.reduce(0) { $0 + ($1.upvotes ?? 0) }
     }
 
-    private var reduceMotion: Bool {
-        AppMotion.reduceMotion(
-            systemReduceMotion: systemReduceMotion,
-            respectPreference: respectReducedMotion
-        )
-    }
 
     var body: some View {
         ScrollView {

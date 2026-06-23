@@ -541,8 +541,7 @@ private struct SettingsOverviewCard: View {
     let subtitle: String
     let isPlaying: Bool
     let badges: [SettingsOverviewBadge]
-    @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
-    @AppStorage("nk.respectReducedMotion") private var respectReducedMotion: Bool = true
+    @Environment(\.appReduceMotion) private var reduceMotion
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -595,10 +594,6 @@ private struct SettingsOverviewCard: View {
     private var overviewAnimation: Animation? {
         reduceMotion ? nil : .spring(response: 0.34, dampingFraction: 0.7)
     }
-
-    private var reduceMotion: Bool {
-        AppMotion.reduceMotion(systemReduceMotion: systemReduceMotion, respectPreference: respectReducedMotion)
-    }
 }
 
 private struct SettingsOverviewPill: View {
@@ -634,7 +629,7 @@ private struct SettingsStorageActionRow: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
                     .font(.body)
-                    .foregroundStyle(isDestructive ? Color.appAccent : Color.primary)
+                    .foregroundStyle(isDestructive ? Color.appAccent : .primary)
                 Text(detail)
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
@@ -652,8 +647,7 @@ private struct StrengthSlider: View {
     var valueDescription: String?
     var step: Float = 0.05
 
-    @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
-    @AppStorage("nk.respectReducedMotion") private var respectReducedMotion: Bool = true
+    @Environment(\.appReduceMotion) private var reduceMotion
     @State private var lastFeedbackStep: Int?
 
     private var clampedValue: Float {
@@ -737,10 +731,6 @@ private struct StrengthSlider: View {
     private var sliderAnimation: Animation? {
         reduceMotion ? nil : .interactiveSpring(response: 0.28, dampingFraction: 0.82)
     }
-
-    private var reduceMotion: Bool {
-        AppMotion.reduceMotion(systemReduceMotion: systemReduceMotion, respectPreference: respectReducedMotion)
-    }
 }
 
 private struct EqualizerBands: View {
@@ -816,8 +806,7 @@ private struct EqualizerBand: View {
     let range: ClosedRange<Float>
     var title: String
 
-    @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
-    @AppStorage("nk.respectReducedMotion") private var respectReducedMotion: Bool = true
+    @Environment(\.appReduceMotion) private var reduceMotion
     @State private var lastFeedbackStep: Int?
 
     private var clampedValue: Float {
@@ -908,10 +897,6 @@ private struct EqualizerBand: View {
 
     private var bandAnimation: Animation? {
         reduceMotion ? nil : .interactiveSpring(response: 0.28, dampingFraction: 0.82)
-    }
-
-    private var reduceMotion: Bool {
-        AppMotion.reduceMotion(systemReduceMotion: systemReduceMotion, respectPreference: respectReducedMotion)
     }
 }
 

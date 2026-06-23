@@ -4,8 +4,7 @@ import SwiftUI
 struct LoginSheet: View {
     @ObservedObject var auth: AuthManager
     @Environment(\.dismiss) private var dismiss
-    @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
-    @AppStorage("nk.respectReducedMotion") private var respectReducedMotion: Bool = true
+    @Environment(\.appReduceMotion) private var reduceMotion
     @State private var username = ""
     @State private var password = ""
     @State private var showPassword = false
@@ -287,13 +286,6 @@ struct LoginSheet: View {
 
     private var errorTransition: AnyTransition {
         reduceMotion ? .opacity : .move(edge: .top).combined(with: .opacity)
-    }
-
-    private var reduceMotion: Bool {
-        AppMotion.reduceMotion(
-            systemReduceMotion: systemReduceMotion,
-            respectPreference: respectReducedMotion
-        )
     }
 }
 

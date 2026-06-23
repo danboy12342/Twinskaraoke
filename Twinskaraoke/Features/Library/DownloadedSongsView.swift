@@ -3,19 +3,12 @@ import SwiftUI
 struct DownloadedSongsView: View {
     @StateObject private var downloads = DownloadManager.shared
     @StateObject private var recentlyPlayed = RecentlyPlayedStore.shared
-    @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
-    @AppStorage("nk.respectReducedMotion") private var respectReducedMotion: Bool = true
+    @Environment(\.appReduceMotion) private var reduceMotion
     @State private var localSongs: [Song] = []
 
     @State private var showsCollapsedTitle = false
     @State private var showRemoveAllConfirmation = false
 
-    private var reduceMotion: Bool {
-        AppMotion.reduceMotion(
-            systemReduceMotion: systemReduceMotion,
-            respectPreference: respectReducedMotion
-        )
-    }
 
     var body: some View {
         GeometryReader { geo in
@@ -246,17 +239,10 @@ struct DownloadedSongsView: View {
 
 private struct DownloadedEmptyStateView: View {
     let onRefresh: () -> Void
-    @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
-    @AppStorage("nk.respectReducedMotion") private var respectReducedMotion: Bool = true
+    @Environment(\.appReduceMotion) private var reduceMotion
     @State private var isPulsing = false
     @State private var hasAppeared = false
 
-    private var reduceMotion: Bool {
-        AppMotion.reduceMotion(
-            systemReduceMotion: systemReduceMotion,
-            respectPreference: respectReducedMotion
-        )
-    }
 
     var body: some View {
         VStack(spacing: AM.Spacing.xl) {

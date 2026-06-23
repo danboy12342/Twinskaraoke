@@ -7,9 +7,8 @@ struct ProfileDetailView: View {
     let profile: Profile?
     let badges: [Badge]
     let uploadLimits: UploadLimits?
-    @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
+    @Environment(\.appReduceMotion) private var reduceMotion
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
-    @AppStorage("nk.respectReducedMotion") private var respectReducedMotion: Bool = true
     @State private var selected: Badge?
     private let cols = AM.Layout.adaptiveGridColumns(minimum: 96, spacing: 14)
     private var unlocked: [Badge] {
@@ -127,10 +126,6 @@ struct ProfileDetailView: View {
 
     private var emptyStateTransition: AnyTransition {
         reduceMotion ? .opacity : .opacity.combined(with: .scale(scale: 0.98))
-    }
-
-    private var reduceMotion: Bool {
-        AppMotion.reduceMotion(systemReduceMotion: systemReduceMotion, respectPreference: respectReducedMotion)
     }
 }
 
@@ -337,8 +332,7 @@ private struct ProfileAchievementStrip: View {
 
 private struct AchievementMeter: View {
     let progress: Double
-    @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
-    @AppStorage("nk.respectReducedMotion") private var respectReducedMotion: Bool = true
+    @Environment(\.appReduceMotion) private var reduceMotion
     @State private var animatedProgress = 0.0
 
     var body: some View {
@@ -380,10 +374,6 @@ private struct AchievementMeter: View {
         withOptionalAnimation(AppMotion.spring(response: 0.7, dampingFraction: 0.86)) {
             animatedProgress = newValue
         }
-    }
-
-    private var reduceMotion: Bool {
-        AppMotion.reduceMotion(systemReduceMotion: systemReduceMotion, respectPreference: respectReducedMotion)
     }
 }
 
@@ -481,8 +471,7 @@ private struct BadgeGridSection: View {
     let headerCount: Int?
     let cols: [GridItem]
     let onSelect: (Badge) -> Void
-    @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
-    @AppStorage("nk.respectReducedMotion") private var respectReducedMotion: Bool = true
+    @Environment(\.appReduceMotion) private var reduceMotion
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
@@ -517,10 +506,6 @@ private struct BadgeGridSection: View {
 
     private var cellTransition: AnyTransition {
         reduceMotion ? .opacity : .opacity.combined(with: .scale(scale: 0.94))
-    }
-
-    private var reduceMotion: Bool {
-        AppMotion.reduceMotion(systemReduceMotion: systemReduceMotion, respectPreference: respectReducedMotion)
     }
 }
 
@@ -712,7 +697,7 @@ private struct BadgeStatusPill: View {
             systemImage: unlocked ? "checkmark.circle.fill" : "lock.fill"
         )
         .font(.caption.weight(.semibold))
-        .foregroundStyle(unlocked ? Color.green : Color.secondary)
+        .foregroundStyle(unlocked ? Color.green : .secondary)
         .padding(.horizontal, 10)
         .padding(.vertical, 5)
         .background(Color.appControlInactiveFill, in: Capsule())

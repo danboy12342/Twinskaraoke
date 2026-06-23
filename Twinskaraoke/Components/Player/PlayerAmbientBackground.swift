@@ -7,8 +7,7 @@ import SwiftUI
 struct PlayerAmbientBackground: View {
     let artworkURL: URL?
     var isPlaying: Bool = true
-    @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
-    @AppStorage("nk.respectReducedMotion") private var respectReducedMotion: Bool = true
+    @Environment(\.appReduceMotion) private var reduceMotion
     @State private var palette: ArtworkPalette = .placeholder
     @State private var animationPhase: Bool = false
 
@@ -40,16 +39,9 @@ struct PlayerAmbientBackground: View {
                 startBreathing()
             }
         }
-        .onAppear {
-            if isPlaying { startBreathing() }
-        }
-    }
-
-    private var reduceMotion: Bool {
-        AppMotion.reduceMotion(
-            systemReduceMotion: systemReduceMotion,
-            respectPreference: respectReducedMotion
-        )
+            .onAppear {
+                if isPlaying { startBreathing() }
+            }
     }
 
     private func startBreathing() {

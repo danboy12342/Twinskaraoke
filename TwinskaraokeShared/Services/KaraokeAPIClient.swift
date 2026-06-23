@@ -210,7 +210,7 @@ nonisolated enum KaraokeAPIClient {
     return []
   }
 
-  private static func jsonRequest(path: String, body: [String: Any]) throws -> URLRequest {
+  static func jsonRequest(path: String, body: [String: Any]) throws -> URLRequest {
     guard JSONSerialization.isValidJSONObject(body) else {
       throw APIError.invalidBody
     }
@@ -221,7 +221,7 @@ nonisolated enum KaraokeAPIClient {
     return request
   }
 
-  private static func request(
+  static func request(
     path: String,
     queryItems: [URLQueryItem] = []
   ) throws -> URLRequest {
@@ -241,7 +241,7 @@ nonisolated enum KaraokeAPIClient {
     return request
   }
 
-  private static func data(for request: URLRequest) async throws -> Data {
+  static func data(for request: URLRequest) async throws -> Data {
     let maxRetries = 3
     let baseDelay: UInt64 = 500_000_000
 

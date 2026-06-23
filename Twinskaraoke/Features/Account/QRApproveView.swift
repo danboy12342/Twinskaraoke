@@ -4,8 +4,7 @@ import SwiftUI
 struct QRApproveView: View {
     @ObservedObject var auth: AuthManager
     @Environment(\.dismiss) private var dismiss
-    @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
-    @AppStorage("nk.respectReducedMotion") private var respectReducedMotion: Bool = true
+    @Environment(\.appReduceMotion) private var reduceMotion
     @State private var phase: Phase = .scanning
     @State private var permission: CameraPermission = .unknown
 
@@ -102,6 +101,10 @@ struct QRApproveView: View {
                 QRCameraView(onScan: handleScan)
                     .ignoresSafeArea()
                 QRScannerChrome()
+                    .ignoresSafeArea()
+                    .transaction { transaction in
+                        transaction.animation = nil
+                    }
                 VStack {
                     Spacer()
                     QRScannerInstructionPanel()
@@ -115,7 +118,7 @@ struct QRApproveView: View {
     private var phaseKey: String {
         switch phase {
         case .scanning:
-            "scanning-\(permissionKey)"
+            "scanning"
         case .confirming:
             "confirming"
         case .approving:
@@ -338,18 +341,10 @@ struct QRApproveView: View {
     private var permissionAnimation: Animation? {
         reduceMotion ? nil : AppMotion.spring(response: 0.2, dampingFraction: 0.9)
     }
-
-    private var reduceMotion: Bool {
-        AppMotion.reduceMotion(
-            systemReduceMotion: systemReduceMotion,
-            respectPreference: respectReducedMotion
-        )
-    }
 }
 
 private struct QRPermissionLoadingView: View {
-    @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
-    @AppStorage("nk.respectReducedMotion") private var respectReducedMotion: Bool = true
+    @Environment(\.appReduceMotion) private var reduceMotion
     @State private var pulse = false
 
     var body: some View {
@@ -384,13 +379,6 @@ private struct QRPermissionLoadingView: View {
 
     private var pulseAnimation: Animation? {
         reduceMotion ? nil : AppMotion.spring(response: 1.15, dampingFraction: 0.82).repeatForever(autoreverses: true)
-    }
-
-    private var reduceMotion: Bool {
-        AppMotion.reduceMotion(
-            systemReduceMotion: systemReduceMotion,
-            respectPreference: respectReducedMotion
-        )
     }
 }
 
@@ -572,8 +560,7 @@ private struct QRHeroGlyph: View {
     let tint: Color
     var isSpinning = false
     var isPulsing = false
-    @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
-    @AppStorage("nk.respectReducedMotion") private var respectReducedMotion: Bool = true
+    @Environment(\.appReduceMotion) private var reduceMotion
     @State private var animate = false
 
     var body: some View {
@@ -597,13 +584,6 @@ private struct QRHeroGlyph: View {
         return isSpinning
             ? AppMotion.spring(response: 1.3, dampingFraction: 0.9).repeatForever(autoreverses: false)
             : AppMotion.spring(response: 1.05, dampingFraction: 0.82).repeatForever(autoreverses: true)
-    }
-
-    private var reduceMotion: Bool {
-        AppMotion.reduceMotion(
-            systemReduceMotion: systemReduceMotion,
-            respectPreference: respectReducedMotion
-        )
     }
 }
 

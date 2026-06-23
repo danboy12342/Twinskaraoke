@@ -140,8 +140,7 @@ struct FullScreenPlayerView: View {
     @ObservedObject private var popupPresentation = PopupPresentationState.shared
     @ObservedObject private var favorites = FavoritesManager.shared
     @Environment(\.dismiss) private var dismiss
-    @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
-    @AppStorage("nk.respectReducedMotion") private var respectReducedMotion: Bool = true
+    @Environment(\.appReduceMotion) private var reduceMotion
     @State private var showingQueue = false
     @State private var showLyrics = false
     @State private var showKaraokeControls = false
@@ -733,15 +732,7 @@ struct FullScreenPlayerView: View {
         let metrics: PlayerLayoutMetrics
         @EnvironmentObject private var audioManager: AudioPlayerManager
         @ObservedObject private var clock = PlaybackClock.shared
-        @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
-        @AppStorage("nk.respectReducedMotion") private var respectReducedMotion: Bool = true
-
-        private var reduceMotion: Bool {
-            AppMotion.reduceMotion(
-                systemReduceMotion: systemReduceMotion,
-                respectPreference: respectReducedMotion
-            )
-        }
+        @Environment(\.appReduceMotion) private var reduceMotion
 
         private func formattedTime(_ seconds: Double) -> String {
             let s = Int(seconds)
@@ -770,7 +761,7 @@ struct FullScreenPlayerView: View {
                     Text(formattedTime(max(0, duration - elapsed)))
                 }
                 .font(AM.Font.timecode)
-                .foregroundStyle(audioManager.isEditingProgress ? Color.primary : Color.secondary)
+                .foregroundStyle(audioManager.isEditingProgress ? .primary : .secondary)
                 .scaleEffect(audioManager.isEditingProgress ? 1.12 : 1.0, anchor: .center)
                 .animation(
                     reduceMotion ? nil : AppMotion.spring(response: 0.3, dampingFraction: 0.85),
@@ -902,13 +893,6 @@ struct FullScreenPlayerView: View {
         )
     }
 
-    private var reduceMotion: Bool {
-        AppMotion.reduceMotion(
-            systemReduceMotion: systemReduceMotion,
-            respectPreference: respectReducedMotion
-        )
-    }
-
     private var lyricsTranslationButton: some View {
         Button {
             if lyricsViewModel.hasTranslatedLyrics {
@@ -941,7 +925,7 @@ struct FullScreenPlayerView: View {
                 }
                 Image(systemName: showTranslatedLyrics ? "globe.badge.chevron.backward" : "globe")
                     .font(.headline)
-                    .foregroundStyle(showTranslatedLyrics ? Color.appAccent : Color.primary.opacity(0.85))
+                    .foregroundStyle(showTranslatedLyrics ? Color.appAccent : .secondary)
             }
             .frame(width: 44, height: 44)
             .modifier(GlassCircle())

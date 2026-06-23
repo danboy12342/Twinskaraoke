@@ -5,8 +5,7 @@ struct SearchView: View {
 
     @ObservedObject private var playback = PlaybackRowState.shared
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
-    @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
-    @AppStorage("nk.respectReducedMotion") private var respectReducedMotion: Bool = true
+    @Environment(\.appReduceMotion) private var reduceMotion
     @State private var pendingSongID: String?
     @State private var playbackTask: Task<Void, Never>?
 
@@ -22,12 +21,6 @@ struct SearchView: View {
         reduceMotion ? .opacity : .opacity.combined(with: .move(edge: .bottom))
     }
 
-    private var reduceMotion: Bool {
-        AppMotion.reduceMotion(
-            systemReduceMotion: systemReduceMotion,
-            respectPreference: respectReducedMotion
-        )
-    }
 
     private func usesWideCanvas(availableWidth: CGFloat) -> Bool {
         AM.Layout.usesWideCanvas(
@@ -164,17 +157,17 @@ private struct SearchResultsSummaryHeader: View {
             HStack(alignment: .firstTextBaseline) {
                 Text("Songs")
                     .font(.title2.bold())
-                    .foregroundStyle(Color.primary)
+                    .foregroundStyle(.primary)
                 Spacer(minLength: 12)
                 Text(resultCountText)
                     .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(Color.secondary)
+                    .foregroundStyle(.secondary)
                     .monospacedDigit()
             }
             if !trimmedQuery.isEmpty {
                 Text("Results for \"\(trimmedQuery)\"")
                     .font(.subheadline)
-                    .foregroundStyle(Color.secondary)
+                    .foregroundStyle(.secondary)
                     .lineLimit(1)
             }
         }
@@ -368,7 +361,7 @@ private struct BrowseCategoriesView: View {
                 SearchFeaturedShortcutTile(
                     title: "Twinskaraoke Top 100",
                     gradient: [
-                        Color(red: 0.98, green: 0.12, blue: 0.22),
+                        Color.appAccent,
                         Color(red: 0.56, green: 0.02, blue: 0.12),
                     ],
                     artworkURL: topChartVM.songs.first?.imageURL
@@ -571,7 +564,7 @@ private struct GenreDetailLoadingView: View {
                         .multilineTextAlignment(.center)
                     Text("Loading songs")
                         .font(.subheadline)
-                        .foregroundStyle(Color.secondary)
+                        .foregroundStyle(.secondary)
                 }
 
                 CenteredLoadingView(minHeight: 160, label: "Loading \(genre.name) songs")
@@ -589,19 +582,12 @@ struct SearchCategorySongCollectionView: View {
     let title: String
     let query: String
     @StateObject private var loader: SearchCategorySongsViewModel
-    @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
-    @AppStorage("nk.respectReducedMotion") private var respectReducedMotion: Bool = true
+    @Environment(\.appReduceMotion) private var reduceMotion
 
     private var categoryStateAnimation: Animation? {
         reduceMotion ? nil : .spring(response: 0.34, dampingFraction: 0.84)
     }
 
-    private var reduceMotion: Bool {
-        AppMotion.reduceMotion(
-            systemReduceMotion: systemReduceMotion,
-            respectPreference: respectReducedMotion
-        )
-    }
 
     init(title: String, query: String) {
         self.title = title
@@ -677,11 +663,11 @@ private struct SearchNoResultsStateView: View {
             VStack(spacing: AM.Spacing.s) {
                 Text("No Results")
                     .font(.title2.bold())
-                    .foregroundStyle(Color.primary)
+                    .foregroundStyle(.primary)
                     .multilineTextAlignment(.center)
                 Text("No songs matched \"\(query.trimmingCharacters(in: .whitespacesAndNewlines))\".")
                     .font(.body)
-                    .foregroundStyle(Color.secondary)
+                    .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
                     .lineLimit(3)
             }
@@ -689,7 +675,7 @@ private struct SearchNoResultsStateView: View {
             VStack(alignment: .leading, spacing: AM.Spacing.m) {
                 Text("Explore instead")
                     .font(.caption.weight(.semibold))
-                    .foregroundStyle(Color.secondary)
+                    .foregroundStyle(.secondary)
                     .textCase(.uppercase)
                 LazyVGrid(
                     columns: AM.Layout.adaptiveGridColumns(minimum: 132, spacing: AM.Spacing.s),
@@ -704,7 +690,7 @@ private struct SearchNoResultsStateView: View {
                         ) {
                             Text(suggestion)
                                 .font(.subheadline.weight(.semibold))
-                                .foregroundStyle(Color.primary)
+                                .foregroundStyle(.primary)
                                 .lineLimit(1)
                                 .minimumScaleFactor(0.82)
                                 .frame(maxWidth: .infinity, minHeight: 44)
@@ -732,20 +718,13 @@ private struct SearchRecoveryStateView: View {
     let actionTitle: String
     let hints: [(String, String)]
     let onAction: () -> Void
-    @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
-    @AppStorage("nk.respectReducedMotion") private var respectReducedMotion: Bool = true
+    @Environment(\.appReduceMotion) private var reduceMotion
     @State private var hasAppeared = false
 
     private var entranceAnimation: Animation? {
         reduceMotion ? nil : .spring(response: 0.42, dampingFraction: 0.82)
     }
 
-    private var reduceMotion: Bool {
-        AppMotion.reduceMotion(
-            systemReduceMotion: systemReduceMotion,
-            respectPreference: respectReducedMotion
-        )
-    }
 
     var body: some View {
         VStack(spacing: AM.Spacing.xl) {
@@ -756,11 +735,11 @@ private struct SearchRecoveryStateView: View {
             VStack(spacing: AM.Spacing.s) {
                 Text(title)
                     .font(.title2.bold())
-                    .foregroundStyle(Color.primary)
+                    .foregroundStyle(.primary)
                     .multilineTextAlignment(.center)
                 Text(message)
                     .font(.body)
-                    .foregroundStyle(Color.secondary)
+                    .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
                     .lineLimit(3)
             }
@@ -780,10 +759,10 @@ private struct SearchRecoveryStateView: View {
                         VStack(alignment: .leading, spacing: 2) {
                             Text(hint.0)
                                 .font(.subheadline.weight(.semibold))
-                                .foregroundStyle(Color.primary)
+                                .foregroundStyle(.primary)
                             Text(hint.1)
                                 .font(.subheadline)
-                                .foregroundStyle(Color.secondary)
+                                .foregroundStyle(.secondary)
                         }
                         Spacer(minLength: 0)
                     }
@@ -807,8 +786,7 @@ private struct SearchRecoveryStateView: View {
 }
 
 private struct SearchStateGlyph: View {
-    @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
-    @AppStorage("nk.respectReducedMotion") private var respectReducedMotion: Bool = true
+    @Environment(\.appReduceMotion) private var reduceMotion
     @State private var isPulsing = false
 
     var body: some View {
@@ -837,12 +815,6 @@ private struct SearchStateGlyph: View {
             .accessibilityHidden(true)
     }
 
-    private var reduceMotion: Bool {
-        AppMotion.reduceMotion(
-            systemReduceMotion: systemReduceMotion,
-            respectPreference: respectReducedMotion
-        )
-    }
 
     private var pulseAnimation: Animation? {
         reduceMotion ? nil : .spring(response: 0.9, dampingFraction: 0.78)
@@ -866,7 +838,7 @@ private struct SearchCategoryLoadingView: View {
                         .multilineTextAlignment(.center)
                     Text("Loading songs")
                         .font(.subheadline)
-                        .foregroundStyle(Color.secondary)
+                        .foregroundStyle(.secondary)
                 }
 
                 CenteredLoadingView(minHeight: 160, label: "Loading \(title) songs")

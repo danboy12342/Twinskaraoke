@@ -40,9 +40,8 @@ private final class RadioPlaybackState: ObservableObject {
 struct RadioView: View {
     @StateObject private var radio = RadioController.shared
     @ObservedObject private var playback = RadioPlaybackState.shared
-    @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
+    @Environment(\.appReduceMotion) private var reduceMotion
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
-    @AppStorage("nk.respectReducedMotion") private var respectReducedMotion: Bool = true
     @State private var showingRadioSchedule = false
 
     private var metadataPulseAnimation: Animation? {
@@ -143,12 +142,6 @@ struct RadioView: View {
         reduceMotion ? .opacity : .opacity.combined(with: .move(edge: .top))
     }
 
-    private var reduceMotion: Bool {
-        AppMotion.reduceMotion(
-            systemReduceMotion: systemReduceMotion,
-            respectPreference: respectReducedMotion
-        )
-    }
 
     @ViewBuilder
     private func radioOverview(availableWidth: CGFloat) -> some View {
@@ -245,12 +238,12 @@ struct RadioView: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text("Featured Episode")
                     .font(.caption.bold())
-                    .foregroundStyle(Color.secondary)
+                    .foregroundStyle(.secondary)
                     .textCase(.uppercase)
                     .accessibilityIdentifier("Radio.FeaturedEpisode.Label")
                 Text(song?.displayTitle ?? np?.station.name ?? "Twinskaraoke Radio")
                     .font(.title.bold())
-                    .foregroundStyle(Color.primary)
+                    .foregroundStyle(.primary)
                     .lineLimit(2)
                     .accessibilityIdentifier("Radio.FeaturedEpisode.Title")
             }
@@ -292,19 +285,19 @@ struct RadioView: View {
                         VStack(alignment: .leading, spacing: 2) {
                             Text("Up Next")
                                 .font(.caption.weight(.semibold))
-                                .foregroundStyle(Color.secondary)
+                                .foregroundStyle(.secondary)
                             Text(next.title ?? next.text ?? "")
                                 .font(.body.weight(.semibold))
                                 .lineLimit(1)
                             Text(next.artist ?? "")
                                 .font(.subheadline)
-                                .foregroundStyle(Color.secondary)
+                                .foregroundStyle(.secondary)
                                 .lineLimit(1)
                         }
                         Spacer()
                         Image(systemName: "chevron.right")
                             .font(.headline.weight(.semibold))
-                            .foregroundStyle(Color.secondary)
+                            .foregroundStyle(.secondary)
                     }
                     .padding(.horizontal, 16)
                     .padding(.vertical, 12)
@@ -461,7 +454,7 @@ private struct RadioSectionHeader: View {
         HStack(alignment: .firstTextBaseline, spacing: AM.Spacing.s) {
             Text(title)
                 .font(AM.Font.sectionHeader)
-                .foregroundStyle(Color.primary)
+                .foregroundStyle(.primary)
             Spacer()
         }
         .padding(.top, 2)
@@ -566,7 +559,7 @@ private struct RadioRefreshBanner: View {
         HStack(spacing: 10) {
             Text(message)
                 .font(.subheadline)
-                .foregroundStyle(Color.primary)
+                .foregroundStyle(.primary)
                 .lineLimit(2)
             Spacer(minLength: 8)
             Button {
@@ -574,7 +567,7 @@ private struct RadioRefreshBanner: View {
             } label: {
                 Text("Retry")
                     .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(Color.primary)
+                    .foregroundStyle(.primary)
                     .padding(.horizontal, 12)
                     .frame(minWidth: 44, minHeight: 44)
                     .background(Color.appSecondaryBackground, in: Capsule())
@@ -624,7 +617,7 @@ private struct RadioStationContextPreview: View {
     let artworkURL: URL?
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        ContextPreviewCard {
             Group {
                 if let artworkURL {
                     RemoteArtworkImage(url: artworkURL, cornerRadius: 10)
@@ -634,6 +627,7 @@ private struct RadioStationContextPreview: View {
             }
             .frame(width: 220, height: 220)
             .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+        } label: {
             VStack(alignment: .leading, spacing: 3) {
                 Text("Live Station")
                     .font(.caption.bold())
@@ -641,17 +635,14 @@ private struct RadioStationContextPreview: View {
                     .textCase(.uppercase)
                 Text(title)
                     .font(.headline.weight(.semibold))
-                    .foregroundStyle(Color.primary)
+                    .foregroundStyle(.primary)
                     .lineLimit(2)
                 Text(subtitle)
                     .font(.subheadline)
-                    .foregroundStyle(Color.secondary)
+                    .foregroundStyle(.secondary)
                     .lineLimit(2)
             }
         }
-        .padding(16)
-        .frame(width: 252, alignment: .leading)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
     }
 }
 
@@ -690,13 +681,13 @@ private struct RadioHistoryRow: View {
                     .lineLimit(1)
                 Text(song.artist ?? "")
                     .font(.subheadline)
-                    .foregroundStyle(Color.secondary)
+                    .foregroundStyle(.secondary)
                     .lineLimit(1)
             }
             Spacer()
             Image(systemName: "chevron.right")
                 .font(.headline.weight(.semibold))
-                .foregroundStyle(Color.secondary)
+                .foregroundStyle(.secondary)
         }
     }
 }

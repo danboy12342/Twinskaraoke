@@ -711,7 +711,7 @@ class AudioPlayerManager: ObservableObject {
         avEngine.onPlaybackEnded = { [weak self] in
             guard let self, !self.isRadioMode else { return }
             guard isPlaying else { return }
-            guard !avEngine.isCrossfading else { return }
+            guard !avEngine.isCrossfading, !avEngine.isCrossfadePending else { return }
             guard quickCutTimer == nil else { return }
             guard !suppressTransitionAfterSeek else { return }
             guard !isPlaybackEndedCallbackSuppressed else {
@@ -2105,7 +2105,7 @@ class AudioPlayerManager: ObservableObject {
             Task { @MainActor [weak self] in
                 guard let self, isStreamMode, !self.isRadioMode else { return }
                 guard isPlaying else { return }
-                guard !avEngine.isCrossfading else { return }
+                guard !avEngine.isCrossfading, !avEngine.isCrossfadePending else { return }
                 guard quickCutTimer == nil else { return }
                 guard !suppressTransitionAfterSeek else { return }
                 guard !isPlaybackEndedCallbackSuppressed else { return }
@@ -2694,84 +2694,72 @@ class AudioPlayerManager: ObservableObject {
     #endif
 
     private func fetchRandomTrending() {
-        guard let url = URL(string: "\(StorageHost.api)/api/explore/trendings?days=7&take=50")
-        else { return }
-        var request = URLRequest(url: url)
-        request.timeoutInterval = 15
-        GuestIdentity.applyIfNeeded(to: &request)
-        URLSession.shared.dataTask(with: request) { data, _, _ in
-            if let data, let songs = try? JSONDecoder().decode([Song].self, from: data),
-               let random = songs.randomElement()
-            {
-                let rotatedQueue: [Song] = if let index = songs.firstIndex(of: random) {
-                    Array(songs[index...]) + Array(songs[..<index])
-                } else {
-                    songs
-                }
-                DispatchQueue.main.async { [weak self] in
-                    self?.play(song: random, context: rotatedQueue)
-                }
-            } else {
-                DispatchQueue.main.async {
-                    #if canImport(UIKit)
-                        self.endTrackTransitionBackgroundTask()
-                    #endif
-                }
+        Task {
+            guard let songs = try? await KaraokeAPIClient.trendingSongs(days: 7, take: 50),
+                  let random = songs.randomElement()
+            else {
+                #if canImport(UIKit)
+                    endTrackTransitionBackgroundTask()
+                #endif
+                return
             }
-        }.resume()
+            let rotatedQueue: [Song] = if let index = songs.firstIndex(of: random) {
+                Array(songs[index...]) + Array(songs[..<index])
+            } else {
+                songs
+            }
+            play(song: random, context: rotatedQueue)
+        }
     }
 
     private func reportPlayCount(for songID: String) {
-        guard let url = URL(string: "\(StorageHost.api)/api/songs/playCount/\(songID)") else { return }
-        var request = URLRequest(url: url)
-        request.httpMethod = "PUT"
-        if let token = UserDefaults.standard.string(forKey: "nk.token"), !token.isEmpty {
-            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        Task {
+            guard var req = try? KaraokeAPIClient.request(
+                path: "/api/songs/playCount/\(songID)"
+            ) else { return }
+            req.httpMethod = "PUT"
+            let _ = try? await KaraokeAPIClient.data(for: req)
         }
-        GuestIdentity.applyIfNeeded(to: &request)
-        URLSession.shared.dataTask(with: request) { _, _, _ in }.resume()
     }
 
     private func enrichSongMetadataIfNeeded(for song: Song) {
         guard !song.hasArtistMetadata else { return }
         let songID = song.id
-        guard let url = URL(string: "\(StorageHost.api)/api/explore/trendings?days=all") else { return }
-        let searchURL = URLComponents(string: "\(StorageHost.api)/api/songs")
-        var request: URLRequest
-        if let searchURL, let u = searchURL.url {
-            request = URLRequest(url: u)
-            request.httpMethod = "POST"
-            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-            GuestIdentity.applyIfNeeded(to: &request)
-            request.httpBody = try? JSONSerialization.data(withJSONObject: [
-                "page": 1, "pageSize": 1, "search": song.title,
-            ])
-        } else {
-            request = URLRequest(url: url)
-            GuestIdentity.applyIfNeeded(to: &request)
-        }
-        URLSession.shared.dataTask(with: request) { [weak self] data, _, _ in
-            guard let data else { return }
-            if let response = try? JSONDecoder().decode(SearchResponse.self, from: data),
-               let match = response.items.first(where: { $0.id == songID })
+        Task { [weak self] in
+            guard let self else { return }
+            let body: [String: Any] = ["page": 1, "pageSize": 1, "search": song.title]
+            if let req = try? KaraokeAPIClient.jsonRequest(path: "/api/songs", body: body),
+               let data = try? await KaraokeAPIClient.data(for: req)
             {
-                DispatchQueue.main.async {
-                    guard let self, self.currentSong?.id == songID else { return }
-                    self.currentSong = match
-                    self.updateNowPlayingInfo(reloadArtwork: false)
-                }
+                self.applyEnrichedMetadata(from: data, songID: songID)
                 return
             }
-            if let songs = try? JSONDecoder().decode([Song].self, from: data),
-               let match = songs.first(where: { $0.id == songID })
-            {
-                DispatchQueue.main.async {
-                    guard let self, self.currentSong?.id == songID else { return }
-                    self.currentSong = match
-                    self.updateNowPlayingInfo(reloadArtwork: false)
-                }
-            }
-        }.resume()
+            guard let req = try? KaraokeAPIClient.request(
+                path: "/api/explore/trendings",
+                queryItems: [URLQueryItem(name: "days", value: "all")]
+            ),
+                  let data = try? await KaraokeAPIClient.data(for: req)
+            else { return }
+            self.applyEnrichedMetadata(from: data, songID: songID)
+        }
+    }
+
+    private func applyEnrichedMetadata(from data: Data, songID: String) {
+        if let response = try? JSONDecoder().decode(SearchResponse.self, from: data),
+           let match = response.items.first(where: { $0.id == songID }),
+           currentSong?.id == songID
+        {
+            currentSong = match
+            updateNowPlayingInfo(reloadArtwork: false)
+            return
+        }
+        if let songs = try? JSONDecoder().decode([Song].self, from: data),
+           let match = songs.first(where: { $0.id == songID }),
+           currentSong?.id == songID
+        {
+            currentSong = match
+            updateNowPlayingInfo(reloadArtwork: false)
+        }
     }
 
     private func handleTransitionBegin(plan: TransitionCoordinator.TransitionPlan) {

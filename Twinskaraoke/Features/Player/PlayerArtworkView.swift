@@ -2,8 +2,7 @@ import SwiftUI
 
 struct PlayerArtworkView: View {
     @EnvironmentObject var audioManager: AudioPlayerManager
-    @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
-    @AppStorage("nk.respectReducedMotion") private var respectReducedMotion: Bool = true
+    @Environment(\.appReduceMotion) private var reduceMotion
     let song: Song
     let size: CGFloat
     var onTap: (() -> Void)?
@@ -64,13 +63,6 @@ struct PlayerArtworkView: View {
 
     private var artworkScale: CGFloat {
         audioManager.isPlaying ? 1.0 : 0.88
-    }
-
-    private var reduceMotion: Bool {
-        AppMotion.reduceMotion(
-            systemReduceMotion: systemReduceMotion,
-            respectPreference: respectReducedMotion
-        )
     }
 
     private var artworkPlaybackAnimation: Animation? {

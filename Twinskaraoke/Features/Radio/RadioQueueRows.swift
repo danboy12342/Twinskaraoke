@@ -23,7 +23,7 @@ struct RadioQueueTrackRow: View {
             VStack(alignment: .leading, spacing: 3) {
                 Text(song.displayTitle)
                     .font(.subheadline.bold())
-                    .foregroundStyle(isCurrent ? Color.appAccent : Color.primary)
+                    .foregroundStyle(isCurrent ? Color.appAccent : .primary)
                     .lineLimit(1)
                 Text(song.displayArtist)
                     .font(.caption)
@@ -53,9 +53,10 @@ struct RadioQueuePreview: View {
     let isCurrent: Bool
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        ContextPreviewCard {
             RadioQueueArtwork(song: song, cornerRadius: 10)
                 .frame(width: 220, height: 220)
+        } label: {
             VStack(alignment: .leading, spacing: 3) {
                 if isCurrent {
                     Text("Live Now")
@@ -73,8 +74,5 @@ struct RadioQueuePreview: View {
                     .lineLimit(2)
             }
         }
-        .padding(16)
-        .frame(width: 252, alignment: .leading)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
     }
 }

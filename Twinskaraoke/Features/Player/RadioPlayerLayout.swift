@@ -3,8 +3,7 @@ import SwiftUI
 struct RadioPlayerLayout: View {
     @EnvironmentObject var audioManager: AudioPlayerManager
     @ObservedObject var favorites: FavoritesManager
-    @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
-    @AppStorage("nk.respectReducedMotion") private var respectReducedMotion: Bool = true
+    @Environment(\.appReduceMotion) private var reduceMotion
     @Binding var showingQueue: Bool
     let song: Song
     let artSize: CGFloat
@@ -89,7 +88,7 @@ struct RadioPlayerLayout: View {
                         }
                     }
                     .font(.title2)
-                    .foregroundStyle(favorites.isFavorite(songID) ? Color.appAccent : Color.primary)
+                    .foregroundStyle(favorites.isFavorite(songID) ? Color.appAccent : .primary)
                     .frame(width: 44, height: 44)
                     .contentShape(Rectangle())
                 }
@@ -168,13 +167,6 @@ struct RadioPlayerLayout: View {
         } else {
             AppHaptic.success.play()
         }
-    }
-
-    private var reduceMotion: Bool {
-        AppMotion.reduceMotion(
-            systemReduceMotion: systemReduceMotion,
-            respectPreference: respectReducedMotion
-        )
     }
 
     private var liveDotAnimation: Animation? {
