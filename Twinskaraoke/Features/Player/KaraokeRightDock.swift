@@ -63,7 +63,7 @@ struct KaraokeRightDock: View {
         .animation(dockAnimation, value: showKaraokeControls)
         .animation(dockAnimation, value: audioManager.karaokeMode)
         .accessibilityElement(children: .contain)
-        .accessibilityLabel("Karaoke controls")
+        .accessibilityLabel("Vocal removal controls")
         .accessibilityValue(dockAccessibilityValue)
     }
 
@@ -146,7 +146,7 @@ struct KaraokeRightDock: View {
         }
         .padding(.top, -2)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("Preparing karaoke")
+        .accessibilityLabel("Preparing vocal removal")
         .accessibilityValue(processingPercentText)
     }
 
@@ -170,7 +170,7 @@ struct KaraokeRightDock: View {
                 ? "Disables vocal removal."
                 : "Enables vocal removal and opens the removal level control."
         }
-        return "Karaoke is preparing for this song."
+        return "Vocal removal is preparing for this song."
     }
 
     private func adjustVocalRemoval(_ direction: AccessibilityAdjustmentDirection) {

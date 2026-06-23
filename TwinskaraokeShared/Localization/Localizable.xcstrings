@@ -1,9 +1,7 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
-    "" : {
-
-    },
+    "" : {},
     "·" : {
       "localizations" : {
         "de" : {
@@ -1513,54 +1511,54 @@
         }
       }
     },
-    "A native SwiftUI client for the Neuro & Evil Karaoke Web Player. Built around the public Neurokaraoke API, with offline downloads, karaoke vocal removal, beat-aware crossfade, and Live Radio playback." : {
+    "A native SwiftUI client for the Neuro & Evil Karaoke Web Player. Built around the public Neurokaraoke API, with offline downloads, vocal removal, beat-aware crossfade, and Live Radio playback." : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "A native SwiftUI client for the Neuro & Evil Karaoke Web Player. Built around the public Neurokaraoke API, with offline downloads, karaoke vocal removal, beat-aware crossfade, and Live Radio playback."
+            "value" : "A native SwiftUI client for the Neuro & Evil Karaoke Web Player. Built around the public Neurokaraoke API, with offline downloads, vocal removal, beat-aware crossfade, and Live Radio playback."
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "A native SwiftUI client for the Neuro & Evil Karaoke Web Player. Built around the public Neurokaraoke API, with offline downloads, karaoke vocal removal, beat-aware crossfade, and Live Radio playback."
+            "value" : "A native SwiftUI client for the Neuro & Evil Karaoke Web Player. Built around the public Neurokaraoke API, with offline downloads, vocal removal, beat-aware crossfade, and Live Radio playback."
           }
         },
         "fi" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "A native SwiftUI client for the Neuro & Evil Karaoke Web Player. Built around the public Neurokaraoke API, with offline downloads, karaoke vocal removal, beat-aware crossfade, and Live Radio playback."
+            "value" : "A native SwiftUI client for the Neuro & Evil Karaoke Web Player. Built around the public Neurokaraoke API, with offline downloads, vocal removal, beat-aware crossfade, and Live Radio playback."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "A native SwiftUI client for the Neuro & Evil Karaoke Web Player. Built around the public Neurokaraoke API, with offline downloads, karaoke vocal removal, beat-aware crossfade, and Live Radio playback."
+            "value" : "A native SwiftUI client for the Neuro & Evil Karaoke Web Player. Built around the public Neurokaraoke API, with offline downloads, vocal removal, beat-aware crossfade, and Live Radio playback."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "A native SwiftUI client for the Neuro & Evil Karaoke Web Player. Built around the public Neurokaraoke API, with offline downloads, karaoke vocal removal, beat-aware crossfade, and Live Radio playback."
+            "value" : "A native SwiftUI client for the Neuro & Evil Karaoke Web Player. Built around the public Neurokaraoke API, with offline downloads, vocal removal, beat-aware crossfade, and Live Radio playback."
           }
         },
         "uk" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "A native SwiftUI client for the Neuro & Evil Karaoke Web Player. Built around the public Neurokaraoke API, with offline downloads, karaoke vocal removal, beat-aware crossfade, and Live Radio playback."
+            "value" : "A native SwiftUI client for the Neuro & Evil Karaoke Web Player. Built around the public Neurokaraoke API, with offline downloads, vocal removal, beat-aware crossfade, and Live Radio playback."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "这是一个 Neuro & Evil 卡拉OK网页播放器的原生 SwiftUI 客户端。基于公共 Neurokaraoke API 构建，具备离线下载、卡拉OK人声消除、节拍匹配交叉混音（Crossfade）和实时电台播放功能。"
+            "value" : "这是一个 Neuro & Evil 卡拉OK网页播放器的原生 SwiftUI 客户端。基于公共 Neurokaraoke API 构建，具备离线下载、人声消除、节拍匹配交叉混音（Crossfade）和实时电台播放功能。"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "這是一個 Neuro & Evil 卡拉OK網頁播放器的原生 SwiftUI 用戶端。基於公共 Neurokaraoke API 建構，具備離線下載、卡拉OK人聲消除、節拍匹配交叉淡入淡出（Crossfade）和即時電台播放功能。"
+            "value" : "這是一個 Neuro & Evil 卡拉OK網頁播放器的原生 SwiftUI 用戶端。基於公共 Neurokaraoke API 建構，具備離線下載、人聲消除、節拍匹配交叉淡入淡出（Crossfade）和即時電台播放功能。"
           }
         }
       }
@@ -2605,9 +2603,7 @@
         }
       }
     },
-    "App Languages" : {
-
-    },
+    "App Languages" : {},
     "Appearance" : {
       "localizations" : {
         "de" : {
@@ -2712,9 +2708,7 @@
         }
       }
     },
-    "Apps" : {
-
-    },
+    "Apps" : {},
     "Art Gallery" : {
       "localizations" : {
         "de" : {
@@ -2971,6 +2965,59 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "音訊"
+          }
+        }
+      }
+    },
+    "Audio Effects" : {},
+    "Audio effects use on-device AI to separate vocals and instrumentals in real time. For best results, use headphones or external speakers." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Audio effects use on-device AI to separate vocals and instrumentals in real time. For best results, use headphones or external speakers."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Audio effects use on-device AI to separate vocals and instrumentals in real time. For best results, use headphones or external speakers."
+          }
+        },
+        "fi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Audio effects use on-device AI to separate vocals and instrumentals in real time. For best results, use headphones or external speakers."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Audio effects use on-device AI to separate vocals and instrumentals in real time. For best results, use headphones or external speakers."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Audio effects use on-device AI to separate vocals and instrumentals in real time. For best results, use headphones or external speakers."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Audio effects use on-device AI to separate vocals and instrumentals in real time. For best results, use headphones or external speakers."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "音频效果利用端侧 AI 实时分离人声与伴奏。为了获得最佳效果，请使用耳机或外接扬声器"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "音訊效果利用裝置端 AI 即時分離人聲與伴奏。為達最佳效果，請使用耳機或外接揚聲器"
           }
         }
       }
@@ -4275,9 +4322,7 @@
         }
       }
     },
-    "Community" : {
-
-    },
+    "Community" : {},
     "Community Artwork" : {
       "localizations" : {
         "de" : {
@@ -4382,9 +4427,7 @@
         }
       }
     },
-    "Contact" : {
-
-    },
+    "Contact" : {},
     "Continue with Discord" : {
       "localizations" : {
         "de" : {
@@ -4645,9 +4688,7 @@
         }
       }
     },
-    "Coverage" : {
-
-    },
+    "Coverage" : {},
     "Create playlist" : {
       "localizations" : {
         "de" : {
@@ -7040,9 +7081,7 @@
         }
       }
     },
-    "Features & Content" : {
-
-    },
+    "Features & Content" : {},
     "Follow the artist gallery for new covers as they arrive." : {
       "localizations" : {
         "de" : {
@@ -7199,9 +7238,7 @@
         }
       }
     },
-    "Good Reasons To Reach Out" : {
-
-    },
+    "Good Reasons To Reach Out" : {},
     "Guest ID" : {
       "localizations" : {
         "de" : {
@@ -8087,6 +8124,7 @@
       }
     },
     "Karaoke" : {
+      "extractionState" : "stale",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -8134,115 +8172,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "K歌"
-          }
-        }
-      }
-    },
-    "Karaoke controls" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Karaoke controls"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Karaoke controls"
-          }
-        },
-        "fi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Karaoke controls"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Karaoke controls"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Karaoke controls"
-          }
-        },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Karaoke controls"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "K歌调节"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "K歌調節"
-          }
-        }
-      }
-    },
-    "Karaoke effects use on-device AI to separate vocals and instrumentals in real time. For best results, use headphones or external speakers." : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Karaoke effects use on-device AI to separate vocals and instrumentals in real time. For best results, use headphones or external speakers."
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Karaoke effects use on-device AI to separate vocals and instrumentals in real time. For best results, use headphones or external speakers."
-          }
-        },
-        "fi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Karaoke effects use on-device AI to separate vocals and instrumentals in real time. For best results, use headphones or external speakers."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Karaoke effects use on-device AI to separate vocals and instrumentals in real time. For best results, use headphones or external speakers."
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Karaoke effects use on-device AI to separate vocals and instrumentals in real time. For best results, use headphones or external speakers."
-          }
-        },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Karaoke effects use on-device AI to separate vocals and instrumentals in real time. For best results, use headphones or external speakers."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "K歌音效利用端侧 AI 实时分离人声与伴奏。为了获得最佳效果，请使用耳机或外接扬声器"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "K歌音效利用裝置端 AI 即時分離人聲與伴奏。為達最佳效果，請使用耳機或外接揚聲器"
           }
         }
       }
     },
     "Karaoke Playlists" : {
+      "extractionState" : "stale",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -8450,9 +8385,7 @@
         }
       }
     },
-    "Language Support" : {
-
-    },
+    "Language Support" : {},
     "Latest Video" : {
       "localizations" : {
         "de" : {
@@ -9811,9 +9744,7 @@
         }
       }
     },
-    "Loads a new random set." : {
-
-    },
+    "Loads a new random set." : {},
     "Locked" : {
       "localizations" : {
         "de" : {
@@ -11946,54 +11877,54 @@
         }
       }
     },
-    "Opens curated karaoke playlists." : {
+    "Opens curated playlists." : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Opens curated karaoke playlists."
+            "value" : "Opens curated playlists."
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Opens curated karaoke playlists."
+            "value" : "Opens curated playlists."
           }
         },
         "fi" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Opens curated karaoke playlists."
+            "value" : "Opens curated playlists."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Opens curated karaoke playlists."
+            "value" : "Opens curated playlists."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Opens curated karaoke playlists."
+            "value" : "Opens curated playlists."
           }
         },
         "uk" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Opens curated karaoke playlists."
+            "value" : "Opens curated playlists."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Opens curated karaoke playlists."
+            "value" : "Opens curated playlists."
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Opens curated karaoke playlists."
+            "value" : "Opens curated playlists."
           }
         }
       }
@@ -12102,106 +12033,106 @@
         }
       }
     },
-    "Opens karaoke search." : {
+    "Opens public playlists" : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Opens karaoke search."
+            "value" : "Opens public playlists"
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Opens karaoke search."
+            "value" : "Opens public playlists"
           }
         },
         "fi" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Opens karaoke search."
+            "value" : "Opens public playlists"
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Opens karaoke search."
+            "value" : "Opens public playlists"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Opens karaoke search."
+            "value" : "Opens public playlists"
           }
         },
         "uk" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Opens karaoke search."
+            "value" : "Opens public playlists"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Opens karaoke search."
+            "value" : "Opens public playlists"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Opens karaoke search."
+            "value" : "Opens public playlists"
           }
         }
       }
     },
-    "Opens public karaoke playlists" : {
+    "Opens search." : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Opens public karaoke playlists"
+            "value" : "Opens search."
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Opens public karaoke playlists"
+            "value" : "Opens search."
           }
         },
         "fi" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Opens public karaoke playlists"
+            "value" : "Opens search."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Opens public karaoke playlists"
+            "value" : "Opens search."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Opens public karaoke playlists"
+            "value" : "Opens search."
           }
         },
         "uk" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Opens public karaoke playlists"
+            "value" : "Opens search."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Opens public karaoke playlists"
+            "value" : "Opens search."
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Opens public karaoke playlists"
+            "value" : "Opens search."
           }
         }
       }
@@ -13142,9 +13073,7 @@
         }
       }
     },
-    "Play random songs" : {
-
-    },
+    "Play random songs" : {},
     "Playback" : {
       "localizations" : {
         "de" : {
@@ -13769,54 +13698,54 @@
         }
       }
     },
-    "Preparing karaoke" : {
+    "Preparing vocal removal" : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Preparing karaoke"
+            "value" : "Preparing vocal removal"
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Preparing karaoke"
+            "value" : "Preparing vocal removal"
           }
         },
         "fi" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Preparing karaoke"
+            "value" : "Preparing vocal removal"
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Preparing karaoke"
+            "value" : "Preparing vocal removal"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Preparing karaoke"
+            "value" : "Preparing vocal removal"
           }
         },
         "uk" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Preparing karaoke"
+            "value" : "Preparing vocal removal"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Preparing karaoke"
+            "value" : "Preparing vocal removal"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Preparing karaoke"
+            "value" : "Preparing vocal removal"
           }
         }
       }
@@ -13925,9 +13854,7 @@
         }
       }
     },
-    "Primary Contact" : {
-
-    },
+    "Primary Contact" : {},
     "Private" : {
       "localizations" : {
         "de" : {
@@ -14084,9 +14011,7 @@
         }
       }
     },
-    "Project Status" : {
-
-    },
+    "Project Status" : {},
     "Public" : {
       "localizations" : {
         "de" : {
@@ -14659,9 +14584,7 @@
         }
       }
     },
-    "Random songs artwork" : {
-
-    },
+    "Random songs artwork" : {},
     "Ready" : {
       "localizations" : {
         "de" : {
@@ -14714,54 +14637,54 @@
         }
       }
     },
-    "Real-time mode: audio is processed on-the-fly when you activate a karaoke feature. Only the unplayed portion is processed for faster results." : {
+    "Real-time mode: audio is processed on-the-fly when you activate an audio effect. Only the unplayed portion is processed for faster results." : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Real-time mode: audio is processed on-the-fly when you activate a karaoke feature. Only the unplayed portion is processed for faster results."
+            "value" : "Real-time mode: audio is processed on-the-fly when you activate an audio effect. Only the unplayed portion is processed for faster results."
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Real-time mode: audio is processed on-the-fly when you activate a karaoke feature. Only the unplayed portion is processed for faster results."
+            "value" : "Real-time mode: audio is processed on-the-fly when you activate an audio effect. Only the unplayed portion is processed for faster results."
           }
         },
         "fi" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Real-time mode: audio is processed on-the-fly when you activate a karaoke feature. Only the unplayed portion is processed for faster results."
+            "value" : "Real-time mode: audio is processed on-the-fly when you activate an audio effect. Only the unplayed portion is processed for faster results."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Real-time mode: audio is processed on-the-fly when you activate a karaoke feature. Only the unplayed portion is processed for faster results."
+            "value" : "Real-time mode: audio is processed on-the-fly when you activate an audio effect. Only the unplayed portion is processed for faster results."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Real-time mode: audio is processed on-the-fly when you activate a karaoke feature. Only the unplayed portion is processed for faster results."
+            "value" : "Real-time mode: audio is processed on-the-fly when you activate an audio effect. Only the unplayed portion is processed for faster results."
           }
         },
         "uk" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Real-time mode: audio is processed on-the-fly when you activate a karaoke feature. Only the unplayed portion is processed for faster results."
+            "value" : "Real-time mode: audio is processed on-the-fly when you activate an audio effect. Only the unplayed portion is processed for faster results."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Real-time mode: audio is processed on-the-fly when you activate a karaoke feature. Only the unplayed portion is processed for faster results."
+            "value" : "Real-time mode: audio is processed on-the-fly when you activate an audio effect. Only the unplayed portion is processed for faster results."
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Real-time mode: audio is processed on-the-fly when you activate a karaoke feature. Only the unplayed portion is processed for faster results."
+            "value" : "Real-time mode: audio is processed on-the-fly when you activate an audio effect. Only the unplayed portion is processed for faster results."
           }
         }
       }
@@ -15078,9 +15001,7 @@
         }
       }
     },
-    "Refresh Random Songs" : {
-
-    },
+    "Refresh Random Songs" : {},
     "Refresh Set" : {
       "localizations" : {
         "de" : {
@@ -16589,54 +16510,54 @@
         }
       }
     },
-    "Save karaoke tracks from any song menu and they will appear here for offline playback." : {
+    "Save songs from any song menu and they will appear here for offline playback." : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Save karaoke tracks from any song menu and they will appear here for offline playback."
+            "value" : "Save songs from any song menu and they will appear here for offline playback."
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Save karaoke tracks from any song menu and they will appear here for offline playback."
+            "value" : "Save songs from any song menu and they will appear here for offline playback."
           }
         },
         "fi" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Save karaoke tracks from any song menu and they will appear here for offline playback."
+            "value" : "Save songs from any song menu and they will appear here for offline playback."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Save karaoke tracks from any song menu and they will appear here for offline playback."
+            "value" : "Save songs from any song menu and they will appear here for offline playback."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Save karaoke tracks from any song menu and they will appear here for offline playback."
+            "value" : "Save songs from any song menu and they will appear here for offline playback."
           }
         },
         "uk" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Save karaoke tracks from any song menu and they will appear here for offline playback."
+            "value" : "Save songs from any song menu and they will appear here for offline playback."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Save karaoke tracks from any song menu and they will appear here for offline playback."
+            "value" : "Save songs from any song menu and they will appear here for offline playback."
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Save karaoke tracks from any song menu and they will appear here for offline playback."
+            "value" : "Save songs from any song menu and they will appear here for offline playback."
           }
         }
       }
@@ -17110,9 +17031,7 @@
         }
       }
     },
-    "Selected" : {
-
-    },
+    "Selected" : {},
     "Session" : {
       "localizations" : {
         "de" : {
@@ -18205,9 +18124,7 @@
         }
       }
     },
-    "Shuffle random songs" : {
-
-    },
+    "Shuffle random songs" : {},
     "Sign In" : {
       "localizations" : {
         "de" : {
@@ -19092,54 +19009,54 @@
         }
       }
     },
-    "Songs will be analyzed in the background so karaoke modes can switch instantly during playback.\n\nThis uses more battery and processing power. Separated stems count toward the 4 GB music cache limit." : {
+    "Songs will be analyzed in the background so audio effects can switch instantly during playback.\n\nThis uses more battery and processing power. Separated stems count toward the 4 GB music cache limit." : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Songs will be analyzed in the background so karaoke modes can switch instantly during playback.\n\nThis uses more battery and processing power. Separated stems count toward the 4 GB music cache limit."
+            "value" : "Songs will be analyzed in the background so audio effects can switch instantly during playback.\n\nThis uses more battery and processing power. Separated stems count toward the 4 GB music cache limit."
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Songs will be analyzed in the background so karaoke modes can switch instantly during playback.\n\nThis uses more battery and processing power. Separated stems count toward the 4 GB music cache limit."
+            "value" : "Songs will be analyzed in the background so audio effects can switch instantly during playback.\n\nThis uses more battery and processing power. Separated stems count toward the 4 GB music cache limit."
           }
         },
         "fi" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Songs will be analyzed in the background so karaoke modes can switch instantly during playback.\n\nThis uses more battery and processing power. Separated stems count toward the 4 GB music cache limit."
+            "value" : "Songs will be analyzed in the background so audio effects can switch instantly during playback.\n\nThis uses more battery and processing power. Separated stems count toward the 4 GB music cache limit."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Songs will be analyzed in the background so karaoke modes can switch instantly during playback.\n\nThis uses more battery and processing power. Separated stems count toward the 4 GB music cache limit."
+            "value" : "Songs will be analyzed in the background so audio effects can switch instantly during playback.\n\nThis uses more battery and processing power. Separated stems count toward the 4 GB music cache limit."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Songs will be analyzed in the background so karaoke modes can switch instantly during playback.\n\nThis uses more battery and processing power. Separated stems count toward the 4 GB music cache limit."
+            "value" : "Songs will be analyzed in the background so audio effects can switch instantly during playback.\n\nThis uses more battery and processing power. Separated stems count toward the 4 GB music cache limit."
           }
         },
         "uk" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Songs will be analyzed in the background so karaoke modes can switch instantly during playback.\n\nThis uses more battery and processing power. Separated stems count toward the 4 GB music cache limit."
+            "value" : "Songs will be analyzed in the background so audio effects can switch instantly during playback.\n\nThis uses more battery and processing power. Separated stems count toward the 4 GB music cache limit."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Songs will be analyzed in the background so karaoke modes can switch instantly during playback.\n\nThis uses more battery and processing power. Separated stems count toward the 4 GB music cache limit."
+            "value" : "Songs will be analyzed in the background so audio effects can switch instantly during playback.\n\nThis uses more battery and processing power. Separated stems count toward the 4 GB music cache limit."
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Songs will be analyzed in the background so karaoke modes can switch instantly during playback.\n\nThis uses more battery and processing power. Separated stems count toward the 4 GB music cache limit."
+            "value" : "Songs will be analyzed in the background so audio effects can switch instantly during playback.\n\nThis uses more battery and processing power. Separated stems count toward the 4 GB music cache limit."
           }
         }
       }
@@ -19976,9 +19893,7 @@
         }
       }
     },
-    "Take-Down Requests" : {
-
-    },
+    "Take-Down Requests" : {},
     "Tap an indicator to clear that cache. Image cache is limited to 2 GB, music cache (including AI stems) to 4 GB, and lyrics cache to 2 GB. Items older than 6 months are automatically cleaned. Downloads are exempt from these limits." : {
       "localizations" : {
         "de" : {
@@ -21851,6 +21766,58 @@
         }
       }
     },
+    "Vocal removal controls" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vocal removal controls"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vocal removal controls"
+          }
+        },
+        "fi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vocal removal controls"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vocal removal controls"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vocal removal controls"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vocal removal controls"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "人声消除控制"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "人聲消除控制"
+          }
+        }
+      }
+    },
     "Vocal removal level" : {
       "localizations" : {
         "de" : {
@@ -22211,6 +22178,146 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "You've reached the empty place"
+          }
+        }
+      }
+    },
+    "Couldn't save" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn't save"
+          }
+        }
+      }
+    },
+    "Current song" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Current song"
+          }
+        }
+      }
+    },
+    "Current user" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Current user"
+          }
+        }
+      }
+    },
+    "Live Radio" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Live Radio"
+          }
+        }
+      }
+    },
+    "Loading Home" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Loading Home"
+          }
+        }
+      }
+    },
+    "Loading New" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Loading New"
+          }
+        }
+      }
+    },
+    "Loading Radio" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Loading Radio"
+          }
+        }
+      }
+    },
+    "Loading art gallery" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Loading art gallery"
+          }
+        }
+      }
+    },
+    "Loading categories" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Loading categories"
+          }
+        }
+      }
+    },
+    "Radio metadata is temporarily unavailable." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Radio metadata is temporarily unavailable."
+          }
+        }
+      }
+    },
+    "Ready to Play" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ready to Play"
+          }
+        }
+      }
+    },
+    "Tune playback for Twinskaraoke" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tune playback for Twinskaraoke"
+          }
+        }
+      }
+    },
+    "Twinskaraoke Radio" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Twinskaraoke Radio"
+          }
+        }
+      }
+    },
+    "Video" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Video"
           }
         }
       }

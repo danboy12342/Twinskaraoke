@@ -253,10 +253,10 @@ private struct DownloadedEmptyStateView: View {
 
             VStack(spacing: AM.Spacing.s) {
                 Text("No Downloads")
-                    .font(.system(size: 23, weight: .bold))
+                    .scaledSystemFont(size: 23, weight: .bold)
                     .foregroundColor(.primary)
-                Text("Save karaoke tracks from any song menu and they will appear here for offline playback.")
-                    .font(.system(size: 15))
+                Text("Save songs from any song menu and they will appear here for offline playback.")
+                    .scaledSystemFont(size: 15)
                     .foregroundColor(.secondary)
                     .multilineTextAlignment(.center)
                     .lineLimit(3)
@@ -320,10 +320,10 @@ private struct DownloadedEmptyHintRow: View {
                 .frame(width: 30, height: 30)
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
-                    .font(.system(size: 14, weight: .semibold))
+                    .scaledSystemFont(size: 14, weight: .semibold)
                     .foregroundColor(.primary)
                 Text(message)
-                    .font(.system(size: 13))
+                    .scaledSystemFont(size: 13)
                     .foregroundColor(.secondary)
                     .lineLimit(2)
             }

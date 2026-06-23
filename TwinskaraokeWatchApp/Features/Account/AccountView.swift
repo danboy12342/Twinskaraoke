@@ -55,7 +55,7 @@ struct AccountView: View {
                     systemImage: "checkmark.seal.fill",
                     tint: .green,
                     title: "Guest playback",
-                    value: "Ready for browsing, radio, and karaoke songs"
+                    value: "Ready for browsing, radio, and music"
                 )
             }
 

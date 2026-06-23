@@ -39,7 +39,7 @@ struct PlaylistsGridView: View {
                 WatchEmptyState(
                     systemImage: "music.note.list",
                     title: "No Playlists",
-                    message: "Curated karaoke sets will appear here."
+                    message: "Curated playlists will appear here."
                 )
                 .padding(.horizontal, 10)
                 .padding(.top, 16)
@@ -103,7 +103,7 @@ private struct WatchPlaylistsHeader: View {
             .frame(width: 34, height: 34)
 
             VStack(alignment: .leading, spacing: 2) {
-                Text("Karaoke Playlists")
+                Text("Playlists")
                     .font(.system(size: 14, weight: .semibold))
                     .foregroundColor(.primary)
                     .lineLimit(1)
@@ -123,7 +123,7 @@ private struct WatchPlaylistsHeader: View {
         }
         .padding(.horizontal, 2)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("Karaoke Playlists")
+        .accessibilityLabel("Playlists")
         .accessibilityValue(summaryText)
     }
 

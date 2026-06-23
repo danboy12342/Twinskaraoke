@@ -187,7 +187,7 @@ struct VideoGalleryView: View {
                         VStack(alignment: .leading, spacing: 12) {
                             HStack(alignment: .firstTextBaseline) {
                                 Text("Recent Videos")
-                                    .font(.system(size: 22, weight: .bold))
+                                    .scaledSystemFont(size: 22, weight: .bold)
                                 Spacer()
                             }
                             .padding(.horizontal, 16)
@@ -271,11 +271,11 @@ private struct FeaturedVideoCard: View {
                         .foregroundColor(.white)
                     VStack(alignment: .leading, spacing: 2) {
                         Text("LATEST VIDEO")
-                            .font(.system(size: 11, weight: .bold))
+                            .scaledSystemFont(size: 11, weight: .bold)
                             .foregroundColor(.white.opacity(0.85))
                             .tracking(0.5)
                         Text(video.songTitle ?? video.name)
-                            .font(.system(size: 17, weight: .semibold))
+                            .scaledSystemFont(size: 17, weight: .semibold)
                             .foregroundColor(.white)
                             .lineLimit(2)
                             .multilineTextAlignment(.leading)
@@ -295,13 +295,13 @@ private struct VideoGalleryCell: View {
                 .shadow(color: .black.opacity(0.12), radius: 6, y: 3)
             VStack(alignment: .leading, spacing: 2) {
                 Text(video.songTitle ?? video.name)
-                    .font(.system(size: 14, weight: .semibold))
+                    .scaledSystemFont(size: 14, weight: .semibold)
                     .foregroundColor(.primary)
                     .lineLimit(1)
                     .truncationMode(.tail)
                 if let creator = video.createdBy, !creator.isEmpty {
                     Text(creator)
-                        .font(.system(size: 12))
+                        .scaledSystemFont(size: 12)
                         .foregroundColor(.secondary)
                         .lineLimit(1)
                 }
@@ -336,11 +336,11 @@ private struct VideoGalleryStateView: View {
 
             VStack(spacing: AM.Spacing.s) {
                 Text(title)
-                    .font(.system(size: 23, weight: .bold))
+                    .scaledSystemFont(size: 23, weight: .bold)
                     .foregroundColor(.primary)
                     .multilineTextAlignment(.center)
                 Text(message)
-                    .font(.system(size: 15))
+                    .scaledSystemFont(size: 15)
                     .foregroundColor(.secondary)
                     .multilineTextAlignment(.center)
                     .lineLimit(3)
@@ -407,10 +407,10 @@ private struct VideoGalleryHintRow: View {
                 .frame(width: 30, height: 30)
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
-                    .font(.system(size: 14, weight: .semibold))
+                    .scaledSystemFont(size: 14, weight: .semibold)
                     .foregroundColor(.primary)
                 Text(message)
-                    .font(.system(size: 13))
+                    .scaledSystemFont(size: 13)
                     .foregroundColor(.secondary)
                     .lineLimit(2)
             }
@@ -481,16 +481,16 @@ private struct VideoContextPreview: View {
             VStack(alignment: .leading, spacing: 4) {
                 if isFeatured {
                     Text("Latest Video")
-                        .font(.system(size: 11, weight: .bold))
+                        .scaledSystemFont(size: 11, weight: .bold)
                         .foregroundColor(.appAccent)
                 }
                 Text(video.displayTitle)
-                    .font(.system(size: 17, weight: .semibold))
+                    .scaledSystemFont(size: 17, weight: .semibold)
                     .foregroundColor(.primary)
                     .lineLimit(2)
                 if let creator = video.createdBy, !creator.isEmpty {
                     Text(creator)
-                        .font(.system(size: 14))
+                        .scaledSystemFont(size: 14)
                         .foregroundColor(.secondary)
                         .lineLimit(1)
                 }
@@ -591,10 +591,10 @@ struct VideoPlayerScreen: View {
                     VStack(alignment: .leading, spacing: 12) {
                         HStack(alignment: .firstTextBaseline) {
                             Text("Similar Videos")
-                                .font(.system(size: 20, weight: .bold))
+                                .scaledSystemFont(size: 20, weight: .bold)
                             Spacer()
                             Text("\(similar.videos.count)")
-                                .font(.system(size: 13, weight: .semibold))
+                                .scaledSystemFont(size: 13, weight: .semibold)
                                 .foregroundStyle(.secondary)
                                 .monospacedDigit()
                         }
@@ -691,17 +691,17 @@ private struct VideoPlayerInfoPanel: View {
         VStack(alignment: .leading, spacing: 14) {
             VStack(alignment: .leading, spacing: 6) {
                 Label("Now Playing", systemImage: "play.circle.fill")
-                    .font(.system(size: 12, weight: .bold))
+                    .scaledSystemFont(size: 12, weight: .bold)
                     .foregroundStyle(Color.appAccent)
                     .textCase(.uppercase)
                 Text(video.displayTitle)
-                    .font(.system(size: 25, weight: .bold))
+                    .scaledSystemFont(size: 25, weight: .bold)
                     .foregroundStyle(.primary)
                     .lineLimit(3)
                     .multilineTextAlignment(.leading)
                 if video.name != video.displayTitle {
                     Text(video.name)
-                        .font(.system(size: 14))
+                        .scaledSystemFont(size: 14)
                         .foregroundStyle(.secondary)
                         .lineLimit(2)
                 }
@@ -780,7 +780,7 @@ private struct VideoActionButtonLabel: View {
 
     var body: some View {
         Label(title, systemImage: systemImage)
-            .font(.system(size: 15, weight: .semibold))
+            .scaledSystemFont(size: 15, weight: .semibold)
             .foregroundStyle(.primary)
             .lineLimit(1)
             .minimumScaleFactor(0.82)
@@ -798,13 +798,13 @@ private struct SimilarVideoRow: View {
                 .frame(width: 140)
             VStack(alignment: .leading, spacing: 4) {
                 Text(video.songTitle ?? video.name)
-                    .font(.system(size: 14, weight: .semibold))
+                    .scaledSystemFont(size: 14, weight: .semibold)
                     .foregroundColor(.primary)
                     .lineLimit(2)
                     .multilineTextAlignment(.leading)
                 if let creator = video.createdBy, !creator.isEmpty {
                     Text(creator)
-                        .font(.system(size: 12))
+                        .scaledSystemFont(size: 12)
                         .foregroundColor(.secondary)
                         .lineLimit(1)
                 }

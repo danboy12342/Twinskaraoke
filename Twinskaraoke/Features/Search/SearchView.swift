@@ -392,7 +392,7 @@ private struct BrowseCategoriesView: View {
             .accessibilityLabel("Public Playlists")
             .accessibilityIdentifier("SearchCategory.PublicPlaylists")
             .accessibilityValue("\(publicPlaylistsVM.playlists.count) playlists")
-            .accessibilityHint("Opens public karaoke playlists")
+            .accessibilityHint("Opens public playlists")
         }
         .padding(.horizontal, horizontalPadding)
     }

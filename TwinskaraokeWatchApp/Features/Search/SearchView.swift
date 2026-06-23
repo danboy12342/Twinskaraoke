@@ -59,7 +59,7 @@ struct SearchView: View {
                     WatchEmptyState(
                         systemImage: "magnifyingglass",
                         title: "Search",
-                        message: "Find karaoke songs, artists, and new favorites."
+                        message: "Find songs, artists, and new favorites."
                     )
                     .listRowBackground(Color.clear)
                 } else if viewModel.isLoading, viewModel.results.isEmpty {

@@ -90,7 +90,7 @@ struct HomeView: View {
                     NavigationLink(destination: PlaylistsGridView()) {
                         WatchBrowseLinkRow(
                             title: "Playlists",
-                            subtitle: "Curated karaoke sets",
+                            subtitle: "Curated playlists",
                             systemImage: "music.note.list",
                             tint: .appAccent
                         )
@@ -98,7 +98,7 @@ struct HomeView: View {
                     .accessibilityIdentifier("WatchHome.playlists")
                     .buttonStyle(.watchPressable)
                     .accessibilityLabel("Playlists")
-                    .accessibilityHint("Opens curated karaoke playlists.")
+                    .accessibilityHint("Opens curated playlists.")
                     .simultaneousGesture(TapGesture().onEnded { WatchHaptic.play(.click) })
                     NavigationLink(destination: SongsView().environmentObject(audioManager)) {
                         WatchBrowseLinkRow(
@@ -124,7 +124,7 @@ struct HomeView: View {
                     .accessibilityIdentifier("WatchHome.search")
                     .buttonStyle(.watchPressable)
                     .accessibilityLabel("Search")
-                    .accessibilityHint("Opens karaoke search.")
+                    .accessibilityHint("Opens search.")
                     .simultaneousGesture(TapGesture().onEnded { WatchHaptic.play(.click) })
                     NavigationLink(destination: AccountView()) {
                         WatchBrowseLinkRow(

@@ -261,7 +261,7 @@ private struct LyricLineRow: View {
                 } else {
                     VStack(alignment: .leading, spacing: isCurrent ? 6 : 3) {
                         Text(line.text)
-                            .font(.system(size: isCurrent ? 30 : 23, weight: isCurrent ? .bold : .semibold))
+                            .scaledSystemFont(size: isCurrent ? 30 : 23, weight: isCurrent ? .bold : .semibold)
                             .foregroundStyle(lineColor)
                             .blur(radius: lineBlur)
                             .multilineTextAlignment(.leading)
@@ -273,7 +273,7 @@ private struct LyricLineRow: View {
                            translated != line.text
                         {
                             Text(translated)
-                                .font(.system(size: isCurrent ? 18 : 15, weight: .medium))
+                                .scaledSystemFont(size: isCurrent ? 18 : 15, weight: .medium)
                                 .foregroundStyle(.secondary)
                                 .multilineTextAlignment(.leading)
                                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -378,7 +378,7 @@ private extension LyricsView {
                         onRetry()
                     } label: {
                         Text("Retry")
-                            .font(.system(size: 14, weight: .semibold))
+                            .scaledSystemFont(size: 14, weight: .semibold)
                             .foregroundStyle(.primary)
                             .padding(.horizontal, 22)
                             .padding(.vertical, 9)

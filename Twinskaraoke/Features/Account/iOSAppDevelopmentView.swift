@@ -32,7 +32,7 @@ struct iOSAppDevelopmentView: View {
                     Text("Twinskaraoke iOS")
                         .font(.headline)
                     Text(
-                        "A native SwiftUI client for the Neuro & Evil Karaoke Web Player. Built around the public Neurokaraoke API, with offline downloads, karaoke vocal removal, beat-aware crossfade, and Live Radio playback."
+                        "A native SwiftUI client for the Neuro & Evil Karaoke Web Player. Built around the public Neurokaraoke API, with offline downloads, vocal removal, beat-aware crossfade, and Live Radio playback."
                     )
                     .font(.subheadline)
                     .foregroundStyle(.secondary)

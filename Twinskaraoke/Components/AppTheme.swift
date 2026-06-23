@@ -243,11 +243,11 @@ enum AM {
         static let categoryGridColumns = adaptiveGridColumns(minimum: 160, spacing: Spacing.m)
 
         static func mediaShelfHeight(tileWidth: CGFloat) -> CGFloat {
-            tileWidth + 92
+            tileWidth + 100
         }
 
         static func compactMediaShelfHeight(tileWidth: CGFloat) -> CGFloat {
-            tileWidth + 78
+            tileWidth + 86
         }
 
         static let mediaShelfHeight = mediaShelfHeight(tileWidth: 190)
@@ -484,10 +484,15 @@ private struct ToolbarIconLabel: View {
 
 private struct ToolbarControlBackground: View {
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+
+    private var backgroundStyle: AnyShapeStyle {
+        reduceTransparency ? AnyShapeStyle(Color.appSecondaryBackground) : AnyShapeStyle(Material.regular)
+    }
 
     var body: some View {
         Circle()
-            .fill(.regularMaterial)
+            .fill(backgroundStyle)
             .overlay {
                 Circle()
                     .fill(
@@ -574,5 +579,32 @@ struct AMSectionHeader<Destination: View>: View {
         }
         .padding(.top, 2)
         .contentShape(Rectangle())
+    }
+}
+
+struct ScaledSystemFont: ViewModifier {
+    @ScaledMetric private var size: CGFloat
+    private let weight: Font.Weight
+    private let design: Font.Design
+
+    init(size: CGFloat, weight: Font.Weight, design: Font.Design, relativeTo textStyle: Font.TextStyle) {
+        _size = ScaledMetric(wrappedValue: size, relativeTo: textStyle)
+        self.weight = weight
+        self.design = design
+    }
+
+    func body(content: Content) -> some View {
+        content.font(.system(size: size, weight: weight, design: design))
+    }
+}
+
+extension View {
+    func scaledSystemFont(
+        size: CGFloat,
+        weight: Font.Weight = .regular,
+        design: Font.Design = .default,
+        relativeTo textStyle: Font.TextStyle = .body
+    ) -> some View {
+        modifier(ScaledSystemFont(size: size, weight: weight, design: design, relativeTo: textStyle))
     }
 }

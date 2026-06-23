@@ -28,7 +28,7 @@ final class RandomSongsViewModel: ObservableObject {
         if let errorMessage {
             return errorMessage
         }
-        return "Refresh to roll a new set of karaoke songs."
+        return "Refresh to roll a new set of songs."
     }
 
     func loadIfNeeded() async {

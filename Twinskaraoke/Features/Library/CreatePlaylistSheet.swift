@@ -166,13 +166,13 @@ private struct CreatePlaylistArtworkPreview: View {
     var body: some View {
         VStack(spacing: 6) {
             Text(name.isEmpty ? "New Playlist" : name)
-                .font(.system(size: 28, weight: .bold))
+                .scaledSystemFont(size: 28, weight: .bold)
                 .foregroundColor(.primary)
                 .lineLimit(2)
                 .multilineTextAlignment(.center)
 
             Label(isPublic ? "Public Playlist" : "Private Playlist", systemImage: isPublic ? "person.2.fill" : "lock.fill")
-                .font(.system(size: 15, weight: .medium))
+                .scaledSystemFont(size: 15, weight: .medium)
                 .foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity)
@@ -190,11 +190,11 @@ private struct CreatePlaylistTextField: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 7) {
             Text(title)
-                .font(.system(size: 12, weight: .bold))
+                .scaledSystemFont(size: 12, weight: .bold)
                 .foregroundStyle(.secondary)
                 .textCase(.uppercase)
             TextField(prompt, text: $text, axis: axis)
-                .font(.system(size: 17))
+                .scaledSystemFont(size: 17)
                 .textInputAutocapitalization(.words)
                 .disableAutocorrection(false)
         }
@@ -217,10 +217,10 @@ private struct CreatePlaylistPrivacyLabel: View {
                 )
             VStack(alignment: .leading, spacing: 2) {
                 Text(isPublic ? "Public" : "Private")
-                    .font(.system(size: 16, weight: .semibold))
+                    .scaledSystemFont(size: 16, weight: .semibold)
                     .foregroundColor(.primary)
                 Text(isPublic ? "Visible to other listeners" : "Only you can edit this playlist")
-                    .font(.system(size: 13))
+                    .scaledSystemFont(size: 13)
                     .foregroundStyle(.secondary)
             }
         }
@@ -235,7 +235,7 @@ private struct CreatePlaylistErrorBanner: View {
             Image(systemName: "exclamationmark.triangle.fill")
                 .font(.system(size: 15, weight: .semibold))
             Text(message)
-                .font(.system(size: 14, weight: .medium))
+                .scaledSystemFont(size: 14, weight: .medium)
             Spacer(minLength: 0)
         }
         .foregroundStyle(Color.appAccent)
@@ -259,7 +259,7 @@ private struct CreatePlaylistSaveLabel: View {
                     .font(.system(size: 15, weight: .bold))
             }
             Text(isSaving ? "Creating..." : "Create Playlist")
-                .font(.system(size: 17, weight: .semibold))
+                .scaledSystemFont(size: 17, weight: .semibold)
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 15)

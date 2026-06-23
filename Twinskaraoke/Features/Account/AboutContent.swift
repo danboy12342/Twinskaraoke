@@ -21,7 +21,7 @@ enum AboutContent {
     static let musicFeatures: [FeatureGroup] = [
         FeatureGroup(
             id: "karaoke-songs",
-            title: "Karaoke Songs",
+            title: "Songs",
             subtitle: "The core collection of Neuro and Evil covers.",
             systemImage: "music.note.list",
             bullets: [
@@ -35,7 +35,7 @@ enum AboutContent {
         FeatureGroup(
             id: "radio",
             title: "Neuro 21 Radio Station",
-            subtitle: "A 24/7 stream of Neuro and Evil karaoke covers.",
+            subtitle: "A 24/7 stream of Neuro and Evil covers.",
             systemImage: "dot.radiowaves.left.and.right",
             bullets: [
                 "Broadcasts continuously through the dedicated internet radio station.",
@@ -72,7 +72,7 @@ enum AboutContent {
         FeatureGroup(
             id: "video-gallery",
             title: "Video Gallery",
-            subtitle: "Karaoke clips from streams.",
+            subtitle: "Clips from streams.",
             systemImage: "play.rectangle.fill",
             bullets: [
                 "Videos are edited and uploaded by FlashFire8.",
@@ -118,7 +118,7 @@ enum AboutContent {
     static let playFeatures: [FeatureGroup] = [
         FeatureGroup(
             id: "quiz",
-            title: "Karaoke Quiz",
+            title: "Music Quiz",
             subtitle: "Knowledge games for Neuro and Evil covers.",
             systemImage: "questionmark.circle.fill",
             bullets: [
@@ -179,7 +179,7 @@ enum AboutContent {
     static let appFeatures: [FeatureGroup] = [
         FeatureGroup(
             id: "karaoke-app",
-            title: "Karaoke App",
+            title: "Companion App",
             subtitle: "Community-maintained desktop, Android, and Apple clients.",
             systemImage: "apps.iphone",
             bullets: [

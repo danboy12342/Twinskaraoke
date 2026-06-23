@@ -428,9 +428,9 @@ struct ArtistDetailView: View {
         if let summary = current.summary, !summary.isEmpty {
             VStack(alignment: .leading, spacing: 8) {
                 Text("About")
-                    .font(.system(size: 18, weight: .bold))
+                    .scaledSystemFont(size: 18, weight: .bold)
                 Text(summary)
-                    .font(.system(size: 14))
+                    .scaledSystemFont(size: 14)
                     .foregroundColor(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -484,11 +484,11 @@ private struct ArtistDetailStateView: View {
 
             VStack(spacing: AM.Spacing.s) {
                 Text(title)
-                    .font(.system(size: 23, weight: .bold))
+                    .scaledSystemFont(size: 23, weight: .bold)
                     .foregroundColor(.primary)
                     .multilineTextAlignment(.center)
                 Text(message)
-                    .font(.system(size: 15))
+                    .scaledSystemFont(size: 15)
                     .foregroundColor(.secondary)
                     .multilineTextAlignment(.center)
                     .lineLimit(3)
@@ -557,10 +557,10 @@ private struct ArtistDetailHintRow: View {
                 .frame(width: 30, height: 30)
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
-                    .font(.system(size: 14, weight: .semibold))
+                    .scaledSystemFont(size: 14, weight: .semibold)
                     .foregroundColor(.primary)
                 Text(message)
-                    .font(.system(size: 13))
+                    .scaledSystemFont(size: 13)
                     .foregroundColor(.secondary)
                     .lineLimit(2)
             }

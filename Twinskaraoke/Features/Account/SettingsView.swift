@@ -61,7 +61,7 @@ struct SettingsView: View {
                 }
             } message: {
                 Text(
-                    "Songs will be analyzed in the background so karaoke modes can switch instantly during playback.\n\nThis uses more battery and processing power. Separated stems count toward the 4 GB music cache limit."
+                    "Songs will be analyzed in the background so audio effects can switch instantly during playback.\n\nThis uses more battery and processing power. Separated stems count toward the 4 GB music cache limit."
                 )
             }
     }
@@ -312,7 +312,7 @@ struct SettingsView: View {
         } footer: {
             if audioManager.aiEnabled, !audioManager.aiAutoAnalyze {
                 Text(
-                    "Real-time mode: audio is processed on-the-fly when you activate a karaoke feature. Only the unplayed portion is processed for faster results."
+                    "Real-time mode: audio is processed on-the-fly when you activate an audio effect. Only the unplayed portion is processed for faster results."
                 )
             } else if !audioManager.aiEnabled {
                 Text(
@@ -404,10 +404,10 @@ struct SettingsView: View {
                     .foregroundStyle(.secondary)
             }
         } header: {
-            Text("Karaoke")
+            Text("Audio Effects")
         } footer: {
             Text(
-                "Karaoke effects use on-device AI to separate vocals and instrumentals in real time. For best results, use headphones or external speakers."
+                "Audio effects use on-device AI to separate vocals and instrumentals in real time. For best results, use headphones or external speakers."
             )
         }
     }

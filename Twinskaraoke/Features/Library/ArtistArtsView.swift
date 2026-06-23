@@ -29,10 +29,10 @@ struct ArtistArtsView: View {
                 if !arts.isEmpty {
                     HStack {
                         Text("Artwork")
-                            .font(.system(size: 22, weight: .bold))
+                            .scaledSystemFont(size: 22, weight: .bold)
                         Spacer()
                         Text("\(arts.count)")
-                            .font(.system(size: 14, weight: .semibold))
+                            .scaledSystemFont(size: 14, weight: .semibold)
                             .foregroundStyle(.secondary)
                             .monospacedDigit()
                     }
@@ -129,7 +129,7 @@ private struct ArtistArtsHero: View {
                 HeroArtwork(art: art, artistName: artist.name)
                 VStack(spacing: 5) {
                     Text(artist.name)
-                        .font(.system(size: 28, weight: .bold))
+                        .scaledSystemFont(size: 28, weight: .bold)
                         .multilineTextAlignment(.center)
                         .lineLimit(2)
                     if let social = artist.socialLink, !social.isEmpty {
@@ -268,7 +268,7 @@ struct ArtThumbnail: View {
         .overlay(alignment: .bottomTrailing) {
             if let upvotes = art.upvotes, upvotes > 0 {
                 Label("\(upvotes)", systemImage: "heart.fill")
-                    .font(.system(size: 11, weight: .bold))
+                    .scaledSystemFont(size: 11, weight: .bold)
                     .foregroundColor(.white)
                     .padding(.horizontal, 7)
                     .padding(.vertical, 5)
@@ -290,11 +290,11 @@ private struct ArtContextPreview: View {
                 .frame(width: 220, height: 220)
             VStack(alignment: .leading, spacing: 4) {
                 Text(artist.name)
-                    .font(.system(size: 17, weight: .semibold))
+                    .scaledSystemFont(size: 17, weight: .semibold)
                     .lineLimit(1)
                 if let upvotes = art.upvotes, upvotes > 0 {
                     Label("\(upvotes) likes", systemImage: "heart.fill")
-                        .font(.system(size: 13, weight: .medium))
+                        .scaledSystemFont(size: 13, weight: .medium)
                         .foregroundStyle(.secondary)
                 }
             }

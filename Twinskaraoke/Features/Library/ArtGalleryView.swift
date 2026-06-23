@@ -138,7 +138,7 @@ private struct GallerySectionHeader: View {
     let title: String
     var body: some View {
         Text(title)
-            .font(.system(size: 22, weight: .bold))
+            .scaledSystemFont(size: 22, weight: .bold)
             .padding(.horizontal, 16)
     }
 }
@@ -186,7 +186,7 @@ private struct GalleryStatsStrip: View {
     private func stat(value: String, label: String) -> some View {
         VStack(spacing: 2) {
             Text(value)
-                .font(.system(size: 18, weight: .bold))
+                .scaledSystemFont(size: 18, weight: .bold)
                 .monospacedDigit()
             Text(label)
                 .font(.caption2.weight(.medium))
@@ -224,16 +224,16 @@ private struct FeaturedArtCard: View {
             .allowsHitTesting(false)
             VStack(alignment: .leading, spacing: 4) {
                 Text("FEATURED ART")
-                    .font(.system(size: 11, weight: .bold))
+                    .scaledSystemFont(size: 11, weight: .bold)
                     .foregroundColor(.white.opacity(0.85))
                     .tracking(0.6)
                 Text(artist.name)
-                    .font(.system(size: 22, weight: .bold))
+                    .scaledSystemFont(size: 22, weight: .bold)
                     .foregroundColor(.white)
                     .lineLimit(1)
                 if let upvotes = art.upvotes, upvotes > 0 {
                     Label("\(upvotes)", systemImage: "heart.fill")
-                        .font(.system(size: 13, weight: .semibold))
+                        .scaledSystemFont(size: 13, weight: .semibold)
                         .foregroundColor(.white.opacity(0.9))
                         .padding(.top, 2)
                 }
@@ -253,11 +253,11 @@ private struct GalleryArtPreview: View {
                 .frame(width: 220, height: 220)
             VStack(alignment: .leading, spacing: 4) {
                 Text(artist.name)
-                    .font(.system(size: 17, weight: .semibold))
+                    .scaledSystemFont(size: 17, weight: .semibold)
                     .lineLimit(1)
                 if let upvotes = art.upvotes, upvotes > 0 {
                     Label("\(upvotes) likes", systemImage: "heart.fill")
-                        .font(.system(size: 13, weight: .medium))
+                        .scaledSystemFont(size: 13, weight: .medium)
                         .foregroundStyle(.secondary)
                 }
             }
@@ -297,7 +297,7 @@ private struct ArtistCircleCard: View {
             .clipShape(Circle())
             .shadow(color: .black.opacity(0.15), radius: 6, y: 3)
             Text(artist.name)
-                .font(.system(size: 13, weight: .medium))
+                .scaledSystemFont(size: 13, weight: .medium)
                 .foregroundColor(.primary)
                 .lineLimit(2)
                 .multilineTextAlignment(.center)
@@ -341,16 +341,16 @@ private struct ArtistListRow: View {
             .clipShape(Circle())
             VStack(alignment: .leading, spacing: 2) {
                 Text(artist.name)
-                    .font(.system(size: 16, weight: .medium))
+                    .scaledSystemFont(size: 16, weight: .medium)
                     .foregroundColor(.primary)
                     .lineLimit(1)
                 Text("\(artist.arts?.count ?? 0) artworks")
-                    .font(.system(size: 13))
+                    .scaledSystemFont(size: 13)
                     .foregroundColor(.secondary)
             }
             Spacer()
             Image(systemName: "chevron.right")
-                .font(.system(size: 13, weight: .semibold))
+                .scaledSystemFont(size: 13, weight: .semibold)
                 .foregroundColor(.secondary.opacity(0.6))
         }
         .padding(.vertical, 10)

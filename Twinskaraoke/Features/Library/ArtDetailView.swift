@@ -221,7 +221,7 @@ private struct ArtworkDetailHero: View {
 
                 VStack(spacing: 6) {
                     Text(artist.name)
-                        .font(.system(size: 30, weight: .bold))
+                        .scaledSystemFont(size: 30, weight: .bold)
                         .multilineTextAlignment(.center)
                         .lineLimit(2)
                     if let social = trimmed(artist.socialLink) {
@@ -341,7 +341,7 @@ private struct ArtworkActionLabel: View {
 
     var body: some View {
         Label(title, systemImage: systemImage)
-            .font(.system(size: 15, weight: .semibold))
+            .scaledSystemFont(size: 15, weight: .semibold)
             .foregroundStyle(.primary)
             .lineLimit(1)
             .minimumScaleFactor(0.82)
@@ -374,7 +374,7 @@ private struct ArtworkSaveActionLabel: View {
                 Label("Save", systemImage: "square.and.arrow.down")
             }
         }
-        .font(.system(size: 15, weight: .semibold))
+        .scaledSystemFont(size: 15, weight: .semibold)
         .lineLimit(1)
         .minimumScaleFactor(0.82)
         .frame(maxWidth: .infinity)
@@ -412,11 +412,11 @@ private struct ArtworkDetailContextPreview: View {
                 .frame(width: 220, height: 220)
             VStack(alignment: .leading, spacing: 4) {
                 Text(artist.name)
-                    .font(.system(size: 17, weight: .semibold))
+                    .scaledSystemFont(size: 17, weight: .semibold)
                     .lineLimit(1)
                 if let upvotes = art.upvotes, upvotes > 0 {
                     Label("\(upvotes) likes", systemImage: "heart.fill")
-                        .font(.system(size: 13, weight: .medium))
+                        .scaledSystemFont(size: 13, weight: .medium)
                         .foregroundStyle(.secondary)
                 }
             }
@@ -434,11 +434,11 @@ private struct ArtworkDetailSection: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text(title)
-                .font(.system(size: 13, weight: .semibold))
+                .scaledSystemFont(size: 13, weight: .semibold)
                 .foregroundStyle(.secondary)
                 .textCase(.uppercase)
             Text(text)
-                .font(.system(size: 15, weight: .regular))
+                .scaledSystemFont(size: 15, weight: .regular)
                 .foregroundStyle(.primary)
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -575,14 +575,14 @@ struct ZoomableImageViewer: View {
                         VStack(spacing: 4) {
                             if let title = visibleTitle {
                                 Text(title)
-                                    .font(.system(size: 17, weight: .bold))
+                                    .scaledSystemFont(size: 17, weight: .bold)
                                     .foregroundColor(.white)
                                     .lineLimit(2)
                                     .multilineTextAlignment(.center)
                             }
                             if let subtitle = visibleSubtitle {
                                 Text(subtitle)
-                                    .font(.system(size: 14))
+                                    .scaledSystemFont(size: 14)
                                     .foregroundColor(.white.opacity(0.7))
                                     .lineLimit(1)
                             }

@@ -71,7 +71,7 @@ struct WideNewHero: View {
             WideSongHeroCard(
                 eyebrow: "New Music",
                 title: primary?.title ?? "New",
-                subtitle: primary?.displayArtist.isEmpty == false ? primary?.displayArtist ?? "" : "The newest songs and karaoke-ready releases",
+                subtitle: primary?.displayArtist.isEmpty == false ? primary?.displayArtist ?? "" : "The newest songs and latest releases",
                 song: primary,
                 context: context,
                 playlist: playlist
