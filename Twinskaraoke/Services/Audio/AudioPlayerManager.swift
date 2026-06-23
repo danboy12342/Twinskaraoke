@@ -690,6 +690,7 @@ class AudioPlayerManager: ObservableObject {
         playing: Bool,
         buffering: Bool,
         reloadArtwork: Bool = false,
+        forceNowPlayingUpdate: Bool = false,
         reason: String = #function
     ) {
         let changed = isPlaying != playing || isBuffering != buffering || reloadArtwork
@@ -701,7 +702,7 @@ class AudioPlayerManager: ObservableObject {
                 category: .playback
             )
         }
-        if changed {
+        if changed || forceNowPlayingUpdate {
             updateNowPlayingInfo(reloadArtwork: reloadArtwork)
         }
     }
@@ -1660,21 +1661,31 @@ class AudioPlayerManager: ObservableObject {
         startStreamPlayback(url: remoteURL, songID: song.id, startAt: resumeAt)
     }
 
+    /// Returns true when a pause request matched an active or resumable playback path.
     @discardableResult
     private func pauseCurrentPlayback(source: String = #function) -> Bool {
         if !handlingAudioSessionInterruption {
             wasPlayingBeforeInterruption = false
         }
         if isRadioMode {
+            let wasActive = radioPlaybackRequested || isPlaying || isBuffering
             guard let player = radioPlayer else {
                 radioPlaybackRequested = false
-                setPlaybackState(playing: false, buffering: false, reason: "pause.radio.noPlayer.\(source)")
-                updateNowPlayingInfo(reloadArtwork: false)
-                return currentSong != nil
+                setPlaybackState(
+                    playing: false,
+                    buffering: false,
+                    forceNowPlayingUpdate: true,
+                    reason: "pause.radio.noPlayer.\(source)"
+                )
+                return wasActive
             }
-            guard radioPlaybackRequested || isPlaying || isBuffering else {
-                setPlaybackState(playing: false, buffering: false, reason: "pause.radio.alreadyPaused.\(source)")
-                updateNowPlayingInfo(reloadArtwork: false)
+            guard wasActive else {
+                setPlaybackState(
+                    playing: false,
+                    buffering: false,
+                    forceNowPlayingUpdate: true,
+                    reason: "pause.radio.alreadyPaused.\(source)"
+                )
                 return true
             }
             radioPlaybackRequested = false
@@ -1684,15 +1695,24 @@ class AudioPlayerManager: ObservableObject {
             return true
         }
         if isStreamMode {
+            let wasActive = streamPlaybackRequested || isPlaying || isBuffering
             guard let player = streamPlayer else {
                 streamPlaybackRequested = false
-                setPlaybackState(playing: false, buffering: false, reason: "pause.stream.noPlayer.\(source)")
-                updateNowPlayingInfo(reloadArtwork: false)
-                return currentSong != nil
+                setPlaybackState(
+                    playing: false,
+                    buffering: false,
+                    forceNowPlayingUpdate: true,
+                    reason: "pause.stream.noPlayer.\(source)"
+                )
+                return wasActive
             }
-            guard streamPlaybackRequested || isPlaying || isBuffering else {
-                setPlaybackState(playing: false, buffering: false, reason: "pause.stream.alreadyPaused.\(source)")
-                updateNowPlayingInfo(reloadArtwork: false)
+            guard wasActive else {
+                setPlaybackState(
+                    playing: false,
+                    buffering: false,
+                    forceNowPlayingUpdate: true,
+                    reason: "pause.stream.alreadyPaused.\(source)"
+                )
                 return true
             }
             cancelPendingTransitionWork()
@@ -1704,8 +1724,12 @@ class AudioPlayerManager: ObservableObject {
         }
         guard isPlaying else {
             guard currentSong != nil else { return false }
-            setPlaybackState(playing: false, buffering: false, reason: "pause.file.alreadyPaused.\(source)")
-            updateNowPlayingInfo(reloadArtwork: false)
+            setPlaybackState(
+                playing: false,
+                buffering: false,
+                forceNowPlayingUpdate: true,
+                reason: "pause.file.alreadyPaused.\(source)"
+            )
             return true
         }
         cancelPendingTransitionWork()
@@ -1715,6 +1739,7 @@ class AudioPlayerManager: ObservableObject {
         return true
     }
 
+    /// Returns true when a resume request could be applied to the current playback path.
     @discardableResult
     private func resumeCurrentPlayback(source: String = #function) -> Bool {
         if isRadioMode {
@@ -1724,8 +1749,12 @@ class AudioPlayerManager: ObservableObject {
                 return false
             }
             guard !radioPlaybackRequested || !isPlaying || isBuffering else {
-                setPlaybackState(playing: true, buffering: false, reason: "resume.radio.alreadyPlaying.\(source)")
-                updateNowPlayingInfo(reloadArtwork: false)
+                setPlaybackState(
+                    playing: true,
+                    buffering: false,
+                    forceNowPlayingUpdate: true,
+                    reason: "resume.radio.alreadyPlaying.\(source)"
+                )
                 return true
             }
             configureAudioSessionCategory()
@@ -1744,8 +1773,12 @@ class AudioPlayerManager: ObservableObject {
                 return false
             }
             guard !streamPlaybackRequested || !isPlaying || isBuffering else {
-                setPlaybackState(playing: true, buffering: false, reason: "resume.stream.alreadyPlaying.\(source)")
-                updateNowPlayingInfo(reloadArtwork: false)
+                setPlaybackState(
+                    playing: true,
+                    buffering: false,
+                    forceNowPlayingUpdate: true,
+                    reason: "resume.stream.alreadyPlaying.\(source)"
+                )
                 return true
             }
             configureAudioSessionCategory()
@@ -1759,8 +1792,12 @@ class AudioPlayerManager: ObservableObject {
         }
         guard currentSong != nil else { return false }
         guard !isPlaying else {
-            setPlaybackState(playing: true, buffering: false, reason: "resume.file.alreadyPlaying.\(source)")
-            updateNowPlayingInfo(reloadArtwork: false)
+            setPlaybackState(
+                playing: true,
+                buffering: false,
+                forceNowPlayingUpdate: true,
+                reason: "resume.file.alreadyPlaying.\(source)"
+            )
             return true
         }
         NotificationCenter.default.post(name: MediaPlaybackCoordinator.audioWillPlay, object: nil)
@@ -2613,11 +2650,10 @@ class AudioPlayerManager: ObservableObject {
             if Thread.isMainThread {
                 return MainActor.assumeIsolated { action() }
             }
-            var result: MPRemoteCommandHandlerStatus = .commandFailed
-            DispatchQueue.main.sync {
-                result = MainActor.assumeIsolated { action() }
+            DispatchQueue.main.async {
+                _ = MainActor.assumeIsolated { action() }
             }
-            return result
+            return .success
         }
 
         cc.playCommand.removeTarget(nil)
