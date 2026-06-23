@@ -121,6 +121,27 @@ private struct PopupPlaybackSnapshot {
     }
 }
 
+@MainActor
+final class PopupPresentationState: ObservableObject {
+    static let shared = PopupPresentationState()
+
+    // Keep popup expansion isolated from playback churn. AudioPlayerManager emits
+    // frequent song, artwork, clock, and buffering updates; tying LNPopupUI's
+    // expanded binding to that object makes unrelated playback/UI refreshes more
+    // likely to be interpreted as presentation changes.
+    @Published private(set) var isExpanded = false
+
+    private init() {}
+
+    func setExpanded(_ isExpanded: Bool) {
+        self.isExpanded = isExpanded
+    }
+
+    func collapse() {
+        setExpanded(false)
+    }
+}
+
 #if canImport(UIKit)
     @MainActor
     final class PopupOpenIntentGate: NSObject, UIGestureRecognizerDelegate {
@@ -131,16 +152,24 @@ private struct PopupPlaybackSnapshot {
         private static let radioTrailingControlHitWidth: CGFloat = 192
         private static let tapMovementTolerance: CGFloat = 12
         private static let visibleBarHitHeight: CGFloat = 116
+        private static let openIntentWindow: TimeInterval = 0.45
+        private static let openDragReleaseWindow: TimeInterval = 1.2
         private var touchStartLocation: CGPoint?
+        private var isOpenDragActive = false
         private var openIntentExpiresAt = Date.distantPast
         private var suppressOpenExpiresAt = Date.distantPast
 
         func consumeIntent() -> Bool {
             guard Date() > suppressOpenExpiresAt else {
+                isOpenDragActive = false
                 openIntentExpiresAt = .distantPast
                 return false
             }
             suppressOpenExpiresAt = .distantPast
+            if isOpenDragActive {
+                openIntentExpiresAt = Date().addingTimeInterval(Self.openIntentWindow)
+                return true
+            }
             guard Date() <= openIntentExpiresAt else {
                 openIntentExpiresAt = .distantPast
                 return false
@@ -150,8 +179,9 @@ private struct PopupPlaybackSnapshot {
         }
 
         func suppressNextOpen() {
+            isOpenDragActive = false
             openIntentExpiresAt = .distantPast
-            suppressOpenExpiresAt = Date().addingTimeInterval(0.45)
+            suppressOpenExpiresAt = Date().addingTimeInterval(Self.openIntentWindow)
         }
 
         func installTouchRecognizer(on popupBar: LNPopupBar) {
@@ -176,27 +206,44 @@ private struct PopupPlaybackSnapshot {
 
             switch recognizer.state {
             case .began:
-                touchStartLocation = location
+                isOpenDragActive = false
                 guard Date() > suppressOpenExpiresAt,
                       isVisibleMiniPlayerTouch(location, in: popupBar),
                       !isTrailingControlTouch(location, in: popupBar)
                 else {
+                    touchStartLocation = nil
                     openIntentExpiresAt = .distantPast
                     return
                 }
-                openIntentExpiresAt = Date().addingTimeInterval(0.45)
+                touchStartLocation = location
+                openIntentExpiresAt = Date().addingTimeInterval(Self.openIntentWindow)
             case .changed:
                 guard let touchStartLocation else {
                     openIntentExpiresAt = .distantPast
                     return
                 }
-                if distance(from: touchStartLocation, to: location) > Self.tapMovementTolerance {
+
+                // A swipe up from the mini-player is an intentional open gesture.
+                // Keep the intent alive while LNPopupUI's own drag recognizer moves
+                // the popup; otherwise the binding rejects the open and collapses it.
+                if isIntentionalOpenDrag(from: touchStartLocation, to: location) {
+                    isOpenDragActive = true
+                    openIntentExpiresAt = Date().addingTimeInterval(Self.openIntentWindow)
+                } else if distance(from: touchStartLocation, to: location) > Self.tapMovementTolerance {
+                    isOpenDragActive = false
                     openIntentExpiresAt = .distantPast
                 }
             case .ended:
                 touchStartLocation = nil
+                if isOpenDragActive {
+                    // Slow drags can hover at the top before LNPopupUI commits the
+                    // final open state. Keep a short release grace for that handoff.
+                    isOpenDragActive = false
+                    openIntentExpiresAt = Date().addingTimeInterval(Self.openDragReleaseWindow)
+                }
             case .cancelled, .failed:
                 touchStartLocation = nil
+                isOpenDragActive = false
                 openIntentExpiresAt = .distantPast
             default:
                 break
@@ -209,14 +256,15 @@ private struct PopupPlaybackSnapshot {
                 return false
             }
 
-            // LNPopupUI can keep a larger transparent gesture surface around the
-            // floating bar. Treat only the visible bottom strip as a deliberate
-            // mini-player touch so unrelated UI taps cannot arm a popup-open intent.
+            // Floating LNPopupUI bars live at the top of a taller transparent host
+            // view whose lower extension can overlap the tab bar. Anchor the
+            // accepted area to the visible top strip so Home/Library taps and
+            // nearby navigation hits cannot arm a popup-open intent.
             let visibleHeight = min(bounds.height, Self.visibleBarHitHeight)
             return location.x >= bounds.minX
                 && location.x <= bounds.maxX
-                && location.y >= bounds.maxY - visibleHeight
-                && location.y <= bounds.maxY
+                && location.y >= bounds.minY
+                && location.y <= bounds.minY + visibleHeight
         }
 
         private func isTrailingControlTouch(_ location: CGPoint, in popupBar: LNPopupBar) -> Bool {
@@ -236,6 +284,13 @@ private struct PopupPlaybackSnapshot {
 
         private func distance(from start: CGPoint, to end: CGPoint) -> CGFloat {
             hypot(end.x - start.x, end.y - start.y)
+        }
+
+        private func isIntentionalOpenDrag(from start: CGPoint, to current: CGPoint) -> Bool {
+            let deltaX = current.x - start.x
+            let deltaY = current.y - start.y
+            guard deltaY < -Self.tapMovementTolerance else { return false }
+            return abs(deltaY) >= abs(deltaX) * 0.75
         }
 
         nonisolated func gestureRecognizer(
@@ -603,25 +658,26 @@ private extension RootSection {
 
 private struct PopupModifier: ViewModifier {
     @ObservedObject private var popupState = PopupPlaybackState.shared
+    @ObservedObject private var presentationState = PopupPresentationState.shared
 
     func body(content: Content) -> some View {
         content
             .popup(
                 isBarPresented: .constant(popupState.hasCurrentSong),
                 isPopupOpen: Binding(
-                    get: { AudioPlayerManager.shared.showFullScreen },
+                    get: { presentationState.isExpanded },
                     set: { isOpen in
                         if isOpen {
                             #if canImport(UIKit)
                                 let isIntentionalOpen =
-                                    AudioPlayerManager.shared.showFullScreen || PopupOpenIntentGate.shared.consumeIntent()
+                                    presentationState.isExpanded || PopupOpenIntentGate.shared.consumeIntent()
                                 guard isIntentionalOpen else {
-                                    AudioPlayerManager.shared.showFullScreen = false
+                                    presentationState.collapse()
                                     return
                                 }
                             #endif
                         }
-                        AudioPlayerManager.shared.showFullScreen = isOpen
+                        presentationState.setExpanded(isOpen)
                     }
                 )
             ) {
