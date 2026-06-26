@@ -11,7 +11,7 @@ final class VideoGalleryViewModel: ObservableObject {
     private let pageSize = 25
 
     func fetchInitial() {
-        guard videos.isEmpty else { return }
+        guard videos.isEmpty, !isLoading else { return }
         page = 1
         canLoadMore = true
         load(reset: true)
@@ -31,6 +31,7 @@ final class VideoGalleryViewModel: ObservableObject {
     }
 
     private func load(reset: Bool) {
+        guard !isLoading else { return }
         let urlString =
             "\(StorageHost.api)/api/videos?page=\(page)&pageSize=\(pageSize)&sortBy=UploadedAt&sortDescending=True"
         guard let url = URL(string: urlString) else {
@@ -86,7 +87,7 @@ final class SimilarVideosViewModel: ObservableObject {
     @Published var isLoading = false
 
     func fetch(excluding currentID: String) {
-        guard videos.isEmpty else { return }
+        guard videos.isEmpty, !isLoading else { return }
         let urlString =
             "\(StorageHost.api)/api/videos?startIndex=0&pageSize=20&sortBy=CreatedAt&sortDescending=true"
         guard let url = URL(string: urlString) else { return }
