@@ -6,7 +6,6 @@ import SDWebImage
 
 enum ImageCacheConfig {
     private static var didApply = false
-    private static let thumbnailDiskCacheResetKey = "image-cache.thumbnail-disk-store-reset.v2"
 
     static func applyLimits() {
         guard !didApply else { return }
@@ -19,11 +18,6 @@ enum ImageCacheConfig {
         cfg.shouldUseWeakMemoryCache = true
         cfg.maxDiskAge = 30 * 24 * 60 * 60
         SDImageCache.shared.clearMemory()
-        if !UserDefaults.standard.bool(forKey: thumbnailDiskCacheResetKey) {
-            SDImageCache.shared.clearDisk {
-                UserDefaults.standard.set(true, forKey: thumbnailDiskCacheResetKey)
-            }
-        }
         let dl = SDWebImageDownloader.shared
 
         dl.config.maxConcurrentDownloads = 2

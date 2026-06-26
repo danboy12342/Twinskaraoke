@@ -3,6 +3,36 @@ import Foundation
 import Network
 import SwiftUI
 
+private final class DownloadTaskRegistry: @unchecked Sendable {
+    private let lock = NSLock()
+    private var activeTokens: [String: UUID] = [:]
+
+    func register(songID: String, token: UUID) {
+        lock.lock()
+        activeTokens[songID] = token
+        lock.unlock()
+    }
+
+    func cancel(songID: String) {
+        lock.lock()
+        activeTokens.removeValue(forKey: songID)
+        lock.unlock()
+    }
+
+    func clear() {
+        lock.lock()
+        activeTokens.removeAll()
+        lock.unlock()
+    }
+
+    func performIfActive<T>(songID: String, token: UUID, _ body: () throws -> T) rethrows -> T? {
+        lock.lock()
+        defer { lock.unlock() }
+        guard activeTokens[songID] == token else { return nil }
+        return try body()
+    }
+}
+
 @MainActor
 final class DownloadManager: ObservableObject {
     private struct SongFiles {
@@ -32,6 +62,7 @@ final class DownloadManager: ObservableObject {
     private var pendingWiFiRepairs: [String: Song] = [:]
     private var validDownloadCache: [String: ValidDownloadCacheEntry] = [:]
     private var isWiFiAvailable = false
+    private let taskRegistry = DownloadTaskRegistry()
     private let networkMonitor = NWPathMonitor()
     private let networkMonitorQueue = DispatchQueue(label: "DownloadManager.NetworkMonitor")
     private let maxConcurrentDownloads = 6
@@ -163,6 +194,9 @@ final class DownloadManager: ObservableObject {
         }
         let songID = song.id
         let songFiles = files(for: songID)
+        let token = UUID()
+        let taskRegistry = taskRegistry
+        taskRegistry.register(songID: songID, token: token)
         ensureSongDirectory(for: songID)
         let task = URLSession.shared.downloadTask(with: remote) { [weak self] tempURL, response, error in
             var moved = false
@@ -175,18 +209,23 @@ final class DownloadManager: ObservableObject {
                Self.isValidDownloadedAudio(at: tempURL, expectedDuration: expectedDuration)
             {
                 do {
-                    try FileManager.default.createDirectory(
-                        at: songFiles.directory,
-                        withIntermediateDirectories: true
-                    )
-                    try? FileManager.default.removeItem(at: songFiles.audio)
-                    try FileManager.default.moveItem(at: tempURL, to: songFiles.audio)
-                    try? FileManager.default.removeItem(at: songFiles.source)
-                    FileManager.default.createFile(
-                        atPath: songFiles.source.path,
-                        contents: remote.absoluteString.data(using: .utf8)
-                    )
-                    moved = true
+                    moved = try taskRegistry.performIfActive(songID: songID, token: token) {
+                        try FileManager.default.createDirectory(
+                            at: songFiles.directory,
+                            withIntermediateDirectories: true
+                        )
+                        try? FileManager.default.removeItem(at: songFiles.audio)
+                        try FileManager.default.moveItem(at: tempURL, to: songFiles.audio)
+                        try? FileManager.default.removeItem(at: songFiles.source)
+                        FileManager.default.createFile(
+                            atPath: songFiles.source.path,
+                            contents: remote.absoluteString.data(using: .utf8)
+                        )
+                        return true
+                    } ?? false
+                    if !moved {
+                        try? FileManager.default.removeItem(at: tempURL)
+                    }
                 } catch {
                     DebugLogger.log("Download move failed for \(songID): \(error)", category: .network)
                 }
@@ -201,15 +240,29 @@ final class DownloadManager: ObservableObject {
                     )
                 }
             }
-            Task { @MainActor [weak self, moved, song, songID] in
-                self?.finishDownload(songID: songID, song: song, moved: moved)
+            Task { @MainActor [weak self, moved, song, songID, token] in
+                self?.finishDownload(songID: songID, song: song, moved: moved, token: token)
             }
         }
         tasks[song.id] = task
         task.resume()
     }
 
-    private func finishDownload(songID: String, song: Song, moved: Bool) {
+    private func finishDownload(songID: String, song: Song, moved: Bool, token: UUID? = nil) {
+        if let token {
+            let isCurrentTask = taskRegistry.performIfActive(songID: songID, token: token) { true } ?? false
+            guard isCurrentTask else {
+                if moved {
+                    let songFiles = files(for: songID)
+                    try? FileManager.default.removeItem(at: songFiles.audio)
+                    try? FileManager.default.removeItem(at: songFiles.source)
+                }
+                startQueuedDownloadsIfPossible()
+                logDownloadQueueCompletionIfNeeded()
+                return
+            }
+            taskRegistry.cancel(songID: songID)
+        }
         tasks.removeValue(forKey: songID)
         let wasInProgress = inProgress.remove(songID) != nil
         progress.removeValue(forKey: songID)
@@ -236,6 +289,7 @@ final class DownloadManager: ObservableObject {
     }
 
     func cancel(songID: String) {
+        taskRegistry.cancel(songID: songID)
         tasks[songID]?.cancel()
         tasks.removeValue(forKey: songID)
         queuedDownloads.removeValue(forKey: songID)
@@ -263,6 +317,7 @@ final class DownloadManager: ObservableObject {
         for task in tasks.values {
             task.cancel()
         }
+        taskRegistry.clear()
         tasks.removeAll()
         queuedDownloads.removeAll()
         queuedDownloadOrder.removeAll()

@@ -146,18 +146,11 @@ final class TransitionCoordinator {
             let nextURL = audioFileURL(for: nextSong)
 
             if nextURL == nil, let remoteURL = nextSong.audioURL {
-                if DownloadManager.shared.hasActiveQueue {
-                    DebugLogger.log(
-                        "Skipping transition predownload for \(nextSong.id) while download queue is active",
-                        category: .playback
-                    )
-                } else {
-                    DebugLogger.log(
-                        "Predownloading next transition track \(nextSong.id) from \(remoteURL.lastPathComponent)",
-                        category: .playback
-                    )
-                    await predownload(song: nextSong, from: remoteURL)
-                }
+                DebugLogger.log(
+                    "Predownloading next transition track \(nextSong.id) from \(remoteURL.lastPathComponent)",
+                    category: .playback
+                )
+                await predownload(song: nextSong, from: remoteURL)
             }
 
             let nextFileURL = audioFileURL(for: nextSong)

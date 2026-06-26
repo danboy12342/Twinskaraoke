@@ -115,8 +115,9 @@ struct RemoteArtworkImage: View {
 
     private func markFinishedAfterFailure(for failedURL: URL, error: Error) {
         guard url == failedURL, !loadFailed else { return }
+        let safeURL = Self.redactedURLString(failedURL)
         DebugLogger.log(
-            "Artwork load failed for \(failedURL.absoluteString): \(error.localizedDescription)",
+            "Artwork load failed for \(safeURL): \(error.localizedDescription)",
             category: .cache
         )
         ArtworkFailureBackoff.shared.recordFailure(failedURL)
@@ -126,7 +127,20 @@ struct RemoteArtworkImage: View {
             withOptionalAnimation(AppMotion.spring(response: 0.12, dampingFraction: 0.9)) {
                 loadFailed = true
             }
+            try? await Task.sleep(nanoseconds: ArtworkFailureBackoff.shared.cooldownNanoseconds)
+            guard url == failedURL, loadFailed else { return }
+            ArtworkFailureBackoff.shared.clear(failedURL)
+            withOptionalAnimation(AppMotion.spring(response: 0.12, dampingFraction: 0.9)) {
+                loadFailed = false
+            }
         }
+    }
+
+    private static func redactedURLString(_ url: URL) -> String {
+        var components = URLComponents(url: url, resolvingAgainstBaseURL: false)
+        components?.query = nil
+        components?.fragment = nil
+        return components?.string ?? url.lastPathComponent
     }
 
     private func evictFailedImageCache(for failedURL: URL) {
@@ -160,6 +174,10 @@ final class ArtworkFailureBackoff {
     private let cooldown: TimeInterval = 300
     private let lock = NSLock()
     private var blockedUntil: [URL: Date] = [:]
+
+    var cooldownNanoseconds: UInt64 {
+        UInt64(cooldown * 1_000_000_000)
+    }
 
     func isBlocked(_ url: URL) -> Bool {
         let now = Date()

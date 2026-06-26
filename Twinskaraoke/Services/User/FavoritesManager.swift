@@ -21,12 +21,12 @@ final class FavoritesManager: ObservableObject {
         if let lastLoadFailure, Date().timeIntervalSince(lastLoadFailure) < loadFailureRetryDelay {
             return
         }
-        Task { await load() }
+        Task { @MainActor in await load() }
     }
 
     func reload() {
         guard !isLoading else { return }
-        Task { await load() }
+        Task { @MainActor in await load() }
     }
 
     func clear() {
