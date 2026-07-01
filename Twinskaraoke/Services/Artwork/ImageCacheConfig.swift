@@ -18,6 +18,13 @@ enum ImageCacheConfig {
         .imageDecodeOptions: [SDImageCoderOption.decodeScaleFactor: 1.0],
     ]
 
+    // Prefetch warms cache without forcing decode; decoding happens on display.
+    static let prefetchContext: [SDWebImageContextOption: Any] = [
+        .queryCacheType: NSNumber(value: SDImageCacheType.all.rawValue),
+        .storeCacheType: NSNumber(value: SDImageCacheType.all.rawValue),
+        .imageForceDecodePolicy: NSNumber(value: SDImageForceDecodePolicy.never.rawValue),
+    ]
+
     static func applyLimits() {
         guard !didApply else { return }
         didApply = true

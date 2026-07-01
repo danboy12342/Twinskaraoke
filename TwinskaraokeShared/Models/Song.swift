@@ -35,9 +35,10 @@ nonisolated struct Song: Codable, Identifiable, Equatable, Sendable {
   let originalArtists: [String]?
   let coverArtists: [String]?
   let userUploaded: Bool?
+  let oss: String?
 
   enum CodingKeys: String, CodingKey {
-    case id, title, duration, absolutePath, coverArt, originalArtists, coverArtists, userUploaded
+    case id, title, duration, absolutePath, coverArt, originalArtists, coverArtists, userUploaded, oss
     case cloudflareID = "cloudflareId"
   }
 
@@ -50,7 +51,8 @@ nonisolated struct Song: Codable, Identifiable, Equatable, Sendable {
     coverArt: Media?,
     originalArtists: [String]?,
     coverArtists: [String]?,
-    userUploaded: Bool?
+    userUploaded: Bool?,
+    oss: String? = nil
   ) {
     self.id = id
     self.title = title
@@ -61,6 +63,7 @@ nonisolated struct Song: Codable, Identifiable, Equatable, Sendable {
     self.originalArtists = originalArtists
     self.coverArtists = coverArtists
     self.userUploaded = userUploaded
+    self.oss = oss
   }
 
   init(
@@ -156,9 +159,16 @@ nonisolated struct Song: Codable, Identifiable, Equatable, Sendable {
   }
 
   var audioURL: URL? {
-    guard let path = absolutePath else { return nil }
-    let cleanPath = path.hasPrefix("/") ? String(path.dropFirst()) : path
-    return URL(string: "\(StorageHost.base)/\(cleanPath)")
+    if let path = absolutePath {
+      let cleanPath = path.hasPrefix("/") ? String(path.dropFirst()) : path
+      return URL(string: "\(StorageHost.base)/\(cleanPath)")
+    }
+    // User-uploaded songs deliver their audio path in `oss`; it can contain
+    // spaces and other characters that need percent-encoding.
+    guard let oss, !oss.isEmpty else { return nil }
+    let cleanPath = oss.hasPrefix("/") ? String(oss.dropFirst()) : oss
+    let encodedPath = cleanPath.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? cleanPath
+    return URL(string: "\(StorageHost.base)/\(encodedPath)")
   }
 
   var displayTitle: String {

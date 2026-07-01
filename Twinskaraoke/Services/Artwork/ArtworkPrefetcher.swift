@@ -75,8 +75,8 @@ final class ArtworkPrefetcher {
 
         prefetcher.prefetchURLs(
             selected,
-            options: [.avoidDecodeImage],
-            context: ImageCacheConfig.memoryAndDiskCacheContext,
+            options: [],
+            context: ImageCacheConfig.prefetchContext,
             progress: nil
         ) { finished, skipped in
             DebugLogger.log(
