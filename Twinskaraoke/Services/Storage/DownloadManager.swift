@@ -52,6 +52,7 @@ final class DownloadManager: ObservableObject {
         let validIDs: Set<String>
         let validEntries: [String: ValidDownloadCacheEntry]
         let repairs: [String: Song]
+        let junkSongIDs: [String]
     }
 
     static let shared = DownloadManager()
@@ -360,21 +361,31 @@ final class DownloadManager: ObservableObject {
         failedInCurrentQueue = 0
     }
 
+    /// Read-only for song directories: the scan runs concurrently with live
+    /// downloads, so destructive cleanup is deferred to `applyStartupScan`,
+    /// which runs on the main actor and can defer to live download state.
     private nonisolated func scanExistingDownloadsBlocking() -> StartupScanResult {
         migrateLegacyDownloadsIfNeeded()
         let fm = FileManager.default
         var ids = Set<String>()
         var validEntries: [String: ValidDownloadCacheEntry] = [:]
         var repairs: [String: Song] = [:]
+        var junkSongIDs: [String] = []
         guard let entries = try? fm.contentsOfDirectory(
             at: cacheDir,
             includingPropertiesForKeys: [.isDirectoryKey],
             options: [.skipsHiddenFiles]
         )
-        else { return StartupScanResult(validIDs: ids, validEntries: validEntries, repairs: repairs) }
+        else {
+            return StartupScanResult(
+                validIDs: ids, validEntries: validEntries, repairs: repairs, junkSongIDs: junkSongIDs
+            )
+        }
         for entry in entries {
             let isDirectory = (try? entry.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) == true
             guard isDirectory else {
+                // Loose files at the root are pre-migration leftovers; no
+                // live download writes them, so removal here cannot race.
                 try? fm.removeItem(at: entry)
                 continue
             }
@@ -391,31 +402,48 @@ final class DownloadManager: ObservableObject {
             } else {
                 let repairSong = readMetadata(for: songID)
                 if let repairSong, repairSong.audioURL != nil {
-                    let songFiles = files(for: songID)
-                    try? fm.removeItem(at: songFiles.audio)
-                    try? fm.removeItem(at: songFiles.source)
                     repairs[songID] = repairSong
                 } else {
-                    try? fm.removeItem(at: entry)
+                    junkSongIDs.append(songID)
                 }
             }
         }
-        return StartupScanResult(validIDs: ids, validEntries: validEntries, repairs: repairs)
+        return StartupScanResult(
+            validIDs: ids, validEntries: validEntries, repairs: repairs, junkSongIDs: junkSongIDs
+        )
     }
 
     private func applyStartupScan(_ scan: StartupScanResult) {
-        // Downloads may have started or finished while the scan ran; merge
-        // instead of overwriting, and let live state win on conflicts.
-        downloadedIDs.formUnion(scan.validIDs)
-        for (songID, entry) in scan.validEntries where validDownloadCache[songID] == nil {
+        // Downloads may have started, finished, or been removed while the
+        // scan ran; merge instead of overwriting, and let live state win.
+        let fm = FileManager.default
+        let stillExistingIDs = scan.validIDs.filter { songID in
+            fm.fileExists(atPath: files(for: songID).audio.path)
+        }
+        downloadedIDs.formUnion(stillExistingIDs)
+        for (songID, entry) in scan.validEntries
+            where stillExistingIDs.contains(songID) && validDownloadCache[songID] == nil
+        {
             validDownloadCache[songID] = entry
         }
+        var repairCount = 0
         for (songID, song) in scan.repairs {
             guard !downloadedIDs.contains(songID), !inProgress.contains(songID) else { continue }
+            // A missing metadata file means the song was removed during the
+            // scan; don't delete anything or resurrect it as a repair.
+            let songFiles = files(for: songID)
+            guard fm.fileExists(atPath: songFiles.metadata.path) else { continue }
+            try? fm.removeItem(at: songFiles.audio)
+            try? fm.removeItem(at: songFiles.source)
             pendingWiFiRepairs[songID] = song
+            repairCount += 1
+        }
+        for songID in scan.junkSongIDs {
+            guard !downloadedIDs.contains(songID), !inProgress.contains(songID) else { continue }
+            try? fm.removeItem(at: files(for: songID).directory)
         }
         DebugLogger.log(
-            "DownloadManager scan complete — \(downloadedIDs.count) existing downloads, \(scan.repairs.count) pending repair(s)",
+            "DownloadManager scan complete — \(downloadedIDs.count) existing downloads, \(repairCount) pending repair(s)",
             category: .network
         )
         startPendingWiFiRepairsIfPossible()
