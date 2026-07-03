@@ -2780,15 +2780,23 @@ class AudioPlayerManager: ObservableObject {
             ) { [weak self] image, _, _, _, _, _ in
                 guard let self, currentSong?.id == songID else { return }
                 guard let image else { return }
-                let squareImage = image.croppedToSquare().downscaled(
-                    maxPixel: AudioPlayerManager.artworkMaxPixel
-                )
-                let cost = Int(
-                    squareImage.size.width * squareImage.size.height * squareImage.scale
-                        * squareImage.scale * 4
-                )
-                AudioPlayerManager.artworkCache.setObject(squareImage, forKey: url as NSURL, cost: cost)
-                applyArtwork(squareImage, for: songID, artworkURL: url)
+                // Square-cropping and downscaling redraw the full bitmap;
+                // keep that work off the main thread. NSCache is thread-safe.
+                Task.detached(priority: .userInitiated) { [weak self] in
+                    let squareImage = image.croppedToSquare().downscaled(
+                        maxPixel: AudioPlayerManager.artworkMaxPixel
+                    )
+                    let cost = Int(
+                        squareImage.size.width * squareImage.size.height * squareImage.scale
+                            * squareImage.scale * 4
+                    )
+                    AudioPlayerManager.artworkCache.setObject(
+                        squareImage, forKey: url as NSURL, cost: cost
+                    )
+                    await MainActor.run { [weak self] in
+                        self?.applyArtwork(squareImage, for: songID, artworkURL: url)
+                    }
+                }
             }
         #endif
     }
@@ -3078,7 +3086,9 @@ class AudioPlayerManager: ObservableObject {
 }
 
 #if canImport(UIKit)
-    extension UIImage {
+    // nonisolated: cropping and re-rendering are thread-safe and run off the
+    // main actor when preparing Now Playing artwork.
+    nonisolated extension UIImage {
         func croppedToSquare() -> UIImage {
             let originalWidth = size.width
             let originalHeight = size.height
