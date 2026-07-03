@@ -350,6 +350,7 @@ class AudioPlayerManager: ObservableObject {
     private var cancellables = Set<AnyCancellable>()
     private var artworkURL: URL?
     private var artworkTask: (any SDWebImageOperation)?
+    private var artworkProcessingTask: Task<Void, Never>?
     private var playerArtworkWarmupTasks: [String: any SDWebImageOperation] = [:]
     private var warmedPlayerArtworkAt: [String: Date] = [:]
     private var currentPlaybackURL: URL?
@@ -593,6 +594,7 @@ class AudioPlayerManager: ObservableObject {
             existing.player.removeTimeObserver(existing.token)
         }
         artworkTask?.cancel()
+        artworkProcessingTask?.cancel()
         playerArtworkWarmupTasks.values.forEach { $0.cancel() }
         playerArtworkWarmupTasks.removeAll()
         cacheCompressionTask?.cancel()
@@ -2767,6 +2769,8 @@ class AudioPlayerManager: ObservableObject {
         let songID = currentSong?.id
         artworkTask?.cancel()
         artworkTask = nil
+        artworkProcessingTask?.cancel()
+        artworkProcessingTask = nil
         #if canImport(UIKit)
             if let cached = AudioPlayerManager.artworkCache.object(forKey: url as NSURL) {
                 applyArtwork(cached, for: songID, artworkURL: url)
@@ -2782,10 +2786,12 @@ class AudioPlayerManager: ObservableObject {
                 guard let image else { return }
                 // Square-cropping and downscaling redraw the full bitmap;
                 // keep that work off the main thread. NSCache is thread-safe.
-                Task.detached(priority: .userInitiated) { [weak self] in
+                artworkProcessingTask = Task.detached(priority: .userInitiated) { [weak self] in
+                    guard !Task.isCancelled else { return }
                     let squareImage = image.croppedToSquare().downscaled(
                         maxPixel: AudioPlayerManager.artworkMaxPixel
                     )
+                    guard !Task.isCancelled else { return }
                     let cost = Int(
                         squareImage.size.width * squareImage.size.height * squareImage.scale
                             * squareImage.scale * 4
