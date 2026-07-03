@@ -11,7 +11,9 @@ import SwiftUI
 
         private static let touchRecognizerName = "Twinskaraoke.IntentionalMiniPlayerOpen"
         private static let defaultTrailingControlHitWidth: CGFloat = 132
-        private static let radioTrailingControlHitWidth: CGFloat = 192
+        // Radio mode shows a single 44pt play/stop button, so its control zone
+        // is narrower than the two-button default.
+        private static let radioTrailingControlHitWidth: CGFloat = 96
         private static let tapMovementTolerance: CGFloat = 12
         private static let visibleBarHitHeight: CGFloat = 116
         private static let openIntentWindow: TimeInterval = 0.45
@@ -70,26 +72,35 @@ import SwiftUI
             case .began:
                 isOpenDragActive = false
                 guard Date() > suppressOpenExpiresAt,
-                      isVisibleMiniPlayerTouch(location, in: popupBar),
-                      !isTrailingControlTouch(location, in: popupBar)
+                      isVisibleMiniPlayerTouch(location, in: popupBar)
                 else {
                     touchStartLocation = nil
                     openIntentExpiresAt = .distantPast
                     return
                 }
                 touchStartLocation = location
-                openIntentExpiresAt = Date().addingTimeInterval(Self.openIntentWindow)
+                // A tap on the trailing playback controls must not open the
+                // popup, but an upward drag starting on them is still an
+                // intentional open — so only the tap intent is withheld here;
+                // .changed can still arm the drag intent.
+                openIntentExpiresAt = isTrailingControlTouch(location, in: popupBar)
+                    ? .distantPast
+                    : Date().addingTimeInterval(Self.openIntentWindow)
             case .changed:
                 guard let touchStartLocation else {
                     openIntentExpiresAt = .distantPast
                     return
                 }
 
-                if isIntentionalOpenDrag(from: touchStartLocation, to: location) {
+                if isOpenDragActive {
+                    // Once the user has committed to an open drag, keep the
+                    // intent alive even if the finger wobbles near the start;
+                    // LNPopup decides whether the gesture opens or closes.
+                    openIntentExpiresAt = Date().addingTimeInterval(Self.openIntentWindow)
+                } else if isIntentionalOpenDrag(from: touchStartLocation, to: location) {
                     isOpenDragActive = true
                     openIntentExpiresAt = Date().addingTimeInterval(Self.openIntentWindow)
                 } else if distance(from: touchStartLocation, to: location) > Self.tapMovementTolerance {
-                    isOpenDragActive = false
                     openIntentExpiresAt = .distantPast
                 }
             case .ended:
@@ -100,8 +111,15 @@ import SwiftUI
                 }
             case .cancelled, .failed:
                 touchStartLocation = nil
-                isOpenDragActive = false
-                openIntentExpiresAt = .distantPast
+                if isOpenDragActive {
+                    // LNPopup's transition takes over the touch and cancels
+                    // this recognizer mid-drag; that is still an intentional
+                    // open, so grant the same release window as .ended.
+                    isOpenDragActive = false
+                    openIntentExpiresAt = Date().addingTimeInterval(Self.openDragReleaseWindow)
+                } else {
+                    openIntentExpiresAt = .distantPast
+                }
             default:
                 break
             }
