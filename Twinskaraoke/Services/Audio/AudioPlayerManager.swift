@@ -379,14 +379,16 @@ class AudioPlayerManager: ObservableObject {
     }()
 
     #if canImport(UIKit)
-        private static let artworkCache: NSCache<NSURL, UIImage> = {
+        // nonisolated(unsafe): NSCache is documented thread-safe; the artwork
+        // processing task reads and writes it off the main actor.
+        private nonisolated(unsafe) static let artworkCache: NSCache<NSURL, UIImage> = {
             let cache = NSCache<NSURL, UIImage>()
             cache.countLimit = 32
             cache.totalCostLimit = 32 * 1024 * 1024
             return cache
         }()
 
-        private static let artworkMaxPixel: CGFloat = 600
+        private nonisolated static let artworkMaxPixel: CGFloat = 600
     #endif
 
     var anyAIEffectActive: Bool {
