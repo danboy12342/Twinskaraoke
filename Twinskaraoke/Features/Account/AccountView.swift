@@ -191,11 +191,22 @@ struct AccountView: View {
             handleLevelChange(with: decoded.profile)
             profile = decoded.profile
             badges = decoded.badges ?? []
+            persistAvatarIfNeeded(decoded.profile.avatarUrl)
         }
         if let data = await limitData,
            let decoded = try? JSONDecoder().decode(UploadLimits.self, from: data)
         {
             uploadLimits = decoded
+        }
+    }
+
+    /// The toolbar avatar reads "nk.avatar"; keep it in sync with the server
+    /// profile so accounts whose login token carried no avatar still get one.
+    private func persistAvatarIfNeeded(_ avatarUrl: String?) {
+        guard let avatarUrl, !avatarUrl.isEmpty else { return }
+        let defaults = UserDefaults.standard
+        if defaults.string(forKey: "nk.avatar") != avatarUrl {
+            defaults.set(avatarUrl, forKey: "nk.avatar")
         }
     }
 

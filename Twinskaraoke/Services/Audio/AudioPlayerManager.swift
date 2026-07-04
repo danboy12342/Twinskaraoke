@@ -350,6 +350,7 @@ class AudioPlayerManager: ObservableObject {
     private var cancellables = Set<AnyCancellable>()
     private var artworkURL: URL?
     private var artworkTask: (any SDWebImageOperation)?
+    private var artworkProcessingTask: Task<Void, Never>?
     private var playerArtworkWarmupTasks: [String: any SDWebImageOperation] = [:]
     private var warmedPlayerArtworkAt: [String: Date] = [:]
     private var currentPlaybackURL: URL?
@@ -378,14 +379,16 @@ class AudioPlayerManager: ObservableObject {
     }()
 
     #if canImport(UIKit)
-        private static let artworkCache: NSCache<NSURL, UIImage> = {
+        // nonisolated(unsafe): NSCache is documented thread-safe; the artwork
+        // processing task reads and writes it off the main actor.
+        private nonisolated(unsafe) static let artworkCache: NSCache<NSURL, UIImage> = {
             let cache = NSCache<NSURL, UIImage>()
             cache.countLimit = 32
             cache.totalCostLimit = 32 * 1024 * 1024
             return cache
         }()
 
-        private static let artworkMaxPixel: CGFloat = 600
+        private nonisolated static let artworkMaxPixel: CGFloat = 600
     #endif
 
     var anyAIEffectActive: Bool {
@@ -593,6 +596,7 @@ class AudioPlayerManager: ObservableObject {
             existing.player.removeTimeObserver(existing.token)
         }
         artworkTask?.cancel()
+        artworkProcessingTask?.cancel()
         playerArtworkWarmupTasks.values.forEach { $0.cancel() }
         playerArtworkWarmupTasks.removeAll()
         cacheCompressionTask?.cancel()
@@ -2767,6 +2771,8 @@ class AudioPlayerManager: ObservableObject {
         let songID = currentSong?.id
         artworkTask?.cancel()
         artworkTask = nil
+        artworkProcessingTask?.cancel()
+        artworkProcessingTask = nil
         #if canImport(UIKit)
             if let cached = AudioPlayerManager.artworkCache.object(forKey: url as NSURL) {
                 applyArtwork(cached, for: songID, artworkURL: url)
@@ -2780,15 +2786,25 @@ class AudioPlayerManager: ObservableObject {
             ) { [weak self] image, _, _, _, _, _ in
                 guard let self, currentSong?.id == songID else { return }
                 guard let image else { return }
-                let squareImage = image.croppedToSquare().downscaled(
-                    maxPixel: AudioPlayerManager.artworkMaxPixel
-                )
-                let cost = Int(
-                    squareImage.size.width * squareImage.size.height * squareImage.scale
-                        * squareImage.scale * 4
-                )
-                AudioPlayerManager.artworkCache.setObject(squareImage, forKey: url as NSURL, cost: cost)
-                applyArtwork(squareImage, for: songID, artworkURL: url)
+                // Square-cropping and downscaling redraw the full bitmap;
+                // keep that work off the main thread. NSCache is thread-safe.
+                artworkProcessingTask = Task.detached(priority: .userInitiated) { [weak self] in
+                    guard !Task.isCancelled else { return }
+                    let squareImage = image.croppedToSquare().downscaled(
+                        maxPixel: AudioPlayerManager.artworkMaxPixel
+                    )
+                    guard !Task.isCancelled else { return }
+                    let cost = Int(
+                        squareImage.size.width * squareImage.size.height * squareImage.scale
+                            * squareImage.scale * 4
+                    )
+                    AudioPlayerManager.artworkCache.setObject(
+                        squareImage, forKey: url as NSURL, cost: cost
+                    )
+                    await MainActor.run { [weak self] in
+                        self?.applyArtwork(squareImage, for: songID, artworkURL: url)
+                    }
+                }
             }
         #endif
     }
@@ -3078,7 +3094,9 @@ class AudioPlayerManager: ObservableObject {
 }
 
 #if canImport(UIKit)
-    extension UIImage {
+    // nonisolated: cropping and re-rendering are thread-safe and run off the
+    // main actor when preparing Now Playing artwork.
+    nonisolated extension UIImage {
         func croppedToSquare() -> UIImage {
             let originalWidth = size.width
             let originalHeight = size.height
