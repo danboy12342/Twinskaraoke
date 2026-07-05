@@ -49,6 +49,13 @@ final class DownloadManager: ObservableObject {
         let modifiedAt: Date?
     }
 
+    private struct StartupScanResult {
+        let validIDs: Set<String>
+        let validEntries: [String: ValidDownloadCacheEntry]
+        let repairs: [String: Song]
+        let junkSongIDs: [String]
+    }
+
     static let shared = DownloadManager()
     @Published private(set) var downloadedIDs: Set<String> = []
     @Published private(set) var inProgress: Set<String> = []
@@ -73,19 +80,23 @@ final class DownloadManager: ObservableObject {
             .urls(for: .documentDirectory, in: .userDomainMask).first!
             .appendingPathComponent("Downloads")
         try? FileManager.default.createDirectory(at: cacheDir, withIntermediateDirectories: true)
-        refreshExistingDownloads()
         startNetworkMonitoring()
-        DebugLogger.log(
-            "DownloadManager init — \(downloadedIDs.count) existing downloads",
-            category: .network
-        )
+        // The startup scan opens every downloaded audio file to validate it;
+        // that per-file decode work must stay off the main thread at launch.
+        Task.detached(priority: .userInitiated) { [weak self] in
+            guard let self else { return }
+            let scan = scanExistingDownloadsBlocking()
+            await MainActor.run {
+                self.applyStartupScan(scan)
+            }
+        }
     }
 
     deinit {
         networkMonitor.cancel()
     }
 
-    private func files(for songID: String) -> SongFiles {
+    private nonisolated func files(for songID: String) -> SongFiles {
         let directory = cacheDir.appendingPathComponent(songID, isDirectory: true)
         return SongFiles(
             directory: directory,
@@ -95,7 +106,7 @@ final class DownloadManager: ObservableObject {
         )
     }
 
-    private func ensureSongDirectory(for songID: String) {
+    private nonisolated func ensureSongDirectory(for songID: String) {
         try? FileManager.default.createDirectory(
             at: files(for: songID).directory,
             withIntermediateDirectories: true
@@ -106,7 +117,7 @@ final class DownloadManager: ObservableObject {
         files(for: songID).audio
     }
 
-    private func sourceURL(for songID: String) -> URL {
+    private nonisolated func sourceURL(for songID: String) -> URL {
         files(for: songID).source
     }
 
@@ -351,36 +362,92 @@ final class DownloadManager: ObservableObject {
         failedInCurrentQueue = 0
     }
 
-    private func refreshExistingDownloads() {
+    /// Read-only for song directories: the scan runs concurrently with live
+    /// downloads, so destructive cleanup is deferred to `applyStartupScan`,
+    /// which runs on the main actor and can defer to live download state.
+    private nonisolated func scanExistingDownloadsBlocking() -> StartupScanResult {
         migrateLegacyDownloadsIfNeeded()
         let fm = FileManager.default
+        var ids = Set<String>()
+        var validEntries: [String: ValidDownloadCacheEntry] = [:]
+        var repairs: [String: Song] = [:]
+        var junkSongIDs: [String] = []
         guard let entries = try? fm.contentsOfDirectory(
             at: cacheDir,
             includingPropertiesForKeys: [.isDirectoryKey],
             options: [.skipsHiddenFiles]
         )
-        else { return }
-        var ids = Set<String>()
+        else {
+            return StartupScanResult(
+                validIDs: ids, validEntries: validEntries, repairs: repairs, junkSongIDs: junkSongIDs
+            )
+        }
         for entry in entries {
             let isDirectory = (try? entry.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) == true
             guard isDirectory else {
+                // Loose files at the root are pre-migration leftovers; no
+                // live download writes them, so removal here cannot race.
                 try? fm.removeItem(at: entry)
                 continue
             }
             let songID = entry.lastPathComponent
             if hasValidDownload(for: songID) {
                 ids.insert(songID)
+                let metadata = readMetadata(for: songID)
+                let metadataDuration = metadata?.duration ?? 0
+                validEntries[songID] = ValidDownloadCacheEntry(
+                    source: readSourceURL(for: songID),
+                    expectedDuration: metadataDuration > 0 ? TimeInterval(metadataDuration) : nil,
+                    modifiedAt: Self.modificationDate(at: files(for: songID).audio)
+                )
             } else {
                 let repairSong = readMetadata(for: songID)
                 if let repairSong, repairSong.audioURL != nil {
-                    removeBrokenAudioFiles(for: repairSong)
-                    pendingWiFiRepairs[songID] = repairSong
+                    repairs[songID] = repairSong
                 } else {
-                    try? fm.removeItem(at: entry)
+                    junkSongIDs.append(songID)
                 }
             }
         }
-        downloadedIDs = ids
+        return StartupScanResult(
+            validIDs: ids, validEntries: validEntries, repairs: repairs, junkSongIDs: junkSongIDs
+        )
+    }
+
+    private func applyStartupScan(_ scan: StartupScanResult) {
+        // Downloads may have started, finished, or been removed while the
+        // scan ran; merge instead of overwriting, and let live state win.
+        let fm = FileManager.default
+        let stillExistingIDs = scan.validIDs.filter { songID in
+            fm.fileExists(atPath: files(for: songID).audio.path)
+        }
+        downloadedIDs.formUnion(stillExistingIDs)
+        for (songID, entry) in scan.validEntries
+            where stillExistingIDs.contains(songID) && validDownloadCache[songID] == nil
+        {
+            validDownloadCache[songID] = entry
+        }
+        var repairCount = 0
+        for (songID, song) in scan.repairs {
+            guard !downloadedIDs.contains(songID), !inProgress.contains(songID) else { continue }
+            // A missing metadata file means the song was removed during the
+            // scan; don't delete anything or resurrect it as a repair.
+            let songFiles = files(for: songID)
+            guard fm.fileExists(atPath: songFiles.metadata.path) else { continue }
+            try? fm.removeItem(at: songFiles.audio)
+            try? fm.removeItem(at: songFiles.source)
+            pendingWiFiRepairs[songID] = song
+            repairCount += 1
+        }
+        for songID in scan.junkSongIDs {
+            guard !downloadedIDs.contains(songID), !inProgress.contains(songID) else { continue }
+            try? fm.removeItem(at: files(for: songID).directory)
+        }
+        DebugLogger.log(
+            "DownloadManager scan complete — \(downloadedIDs.count) existing downloads, \(repairCount) pending repair(s)",
+            category: .network
+        )
+        startPendingWiFiRepairsIfPossible()
     }
 
     func playableURL(for song: Song) -> URL? {
@@ -516,7 +583,7 @@ final class DownloadManager: ObservableObject {
         }
     }
 
-    private func hasValidDownload(for songID: String) -> Bool {
+    private nonisolated func hasValidDownload(for songID: String) -> Bool {
         let songFiles = files(for: songID)
         guard FileManager.default.fileExists(atPath: songFiles.audio.path) else { return false }
         let metadata = readMetadata(for: songID)
@@ -539,7 +606,7 @@ final class DownloadManager: ObservableObject {
         return cachedSource == expectedSource
     }
 
-    private func readSourceURL(for songID: String) -> String? {
+    private nonisolated func readSourceURL(for songID: String) -> String? {
         guard let data = try? Data(contentsOf: sourceURL(for: songID)),
               let rawValue = String(data: data, encoding: .utf8)
         else {
@@ -549,7 +616,7 @@ final class DownloadManager: ObservableObject {
         return normalized.isEmpty ? nil : normalized
     }
 
-    private func writeSourceURL(_ remoteURL: URL, for songID: String) {
+    private nonisolated func writeSourceURL(_ remoteURL: URL, for songID: String) {
         let source = sourceURL(for: songID)
         ensureSongDirectory(for: songID)
         try? FileManager.default.removeItem(at: source)
@@ -617,20 +684,20 @@ final class DownloadManager: ObservableObject {
         }
     }
 
-    private func writeMetadata(for song: Song) {
+    private nonisolated func writeMetadata(for song: Song) {
         let songFiles = files(for: song.id)
         ensureSongDirectory(for: song.id)
         guard let data = try? JSONEncoder().encode(song) else { return }
         try? data.write(to: songFiles.metadata, options: [.atomic])
     }
 
-    private func readMetadata(for songID: String) -> Song? {
+    private nonisolated func readMetadata(for songID: String) -> Song? {
         let metadataURL = files(for: songID).metadata
         guard let data = try? Data(contentsOf: metadataURL) else { return nil }
         return try? JSONDecoder().decode(Song.self, from: data)
     }
 
-    private func migrateLegacyDownloadsIfNeeded() {
+    private nonisolated func migrateLegacyDownloadsIfNeeded() {
         let fm = FileManager.default
         guard let entries = try? fm.contentsOfDirectory(
             at: cacheDir,
@@ -665,7 +732,7 @@ final class DownloadManager: ObservableObject {
         }
     }
 
-    private func migrateLegacyDownloadIfNeeded(for songID: String) {
+    private nonisolated func migrateLegacyDownloadIfNeeded(for songID: String) {
         let fm = FileManager.default
         let legacyAudio = cacheDir.appendingPathComponent("\(songID).mp3")
         let legacySource = cacheDir.appendingPathComponent("\(songID).source")
@@ -705,7 +772,7 @@ final class DownloadManager: ObservableObject {
         }
     }
 
-    private func readLegacySourceURL(for songID: String) -> String? {
+    private nonisolated func readLegacySourceURL(for songID: String) -> String? {
         let legacySource = cacheDir.appendingPathComponent("\(songID).source")
         guard let data = try? Data(contentsOf: legacySource),
               let rawValue = String(data: data, encoding: .utf8)
