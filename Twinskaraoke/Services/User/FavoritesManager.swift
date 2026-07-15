@@ -10,6 +10,7 @@ final class FavoritesManager: ObservableObject {
     private var loaded = false
     private var isLoading = false
     private var lastLoadFailure: Date?
+    private var stateGeneration = 0
     private let loadFailureRetryDelay: TimeInterval = 30
 
     func isFavorite(_ songID: String) -> Bool {
@@ -30,8 +31,11 @@ final class FavoritesManager: ObservableObject {
     }
 
     func clear() {
+        stateGeneration += 1
         favoriteIDs = []
+        inFlight = []
         loaded = false
+        isLoading = false
         lastLoadFailure = nil
     }
 
@@ -44,9 +48,11 @@ final class FavoritesManager: ObservableObject {
             favoriteIDs.insert(songID)
         }
         inFlight.insert(songID)
+        let generation = stateGeneration
         Task {
             let ok = await send(songID: songID)
             await MainActor.run {
+                guard stateGeneration == generation else { return }
                 inFlight.remove(songID)
                 if !ok {
                     if wasFavorite {
@@ -60,15 +66,23 @@ final class FavoritesManager: ObservableObject {
     }
 
     private func load() async {
-        guard UserDefaults.standard.string(forKey: "nk.token") != nil else { return }
+        guard CredentialStore.isAuthenticated else { return }
+        let generation = stateGeneration
         isLoading = true
-        defer { isLoading = false }
+        defer {
+            if stateGeneration == generation {
+                isLoading = false
+            }
+        }
         guard let req = try? KaraokeAPIClient.request(path: "/api/user/favorites"),
               let data = try? await KaraokeAPIClient.data(for: req)
         else {
-            lastLoadFailure = Date()
+            if stateGeneration == generation {
+                lastLoadFailure = Date()
+            }
             return
         }
+        guard stateGeneration == generation else { return }
         let ids = Self.parseIDs(from: data)
         favoriteIDs = Set(ids)
         loaded = true
@@ -76,8 +90,9 @@ final class FavoritesManager: ObservableObject {
     }
 
     private func send(songID: String) async -> Bool {
-        let encoded = songID.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? songID
-        guard var req = try? KaraokeAPIClient.request(path: "/api/user/favorites/\(encoded)")
+        guard var req = try? KaraokeAPIClient.request(
+            pathSegments: ["api", "user", "favorites", songID]
+        )
         else { return false }
         req.httpMethod = "PUT"
         return (try? await KaraokeAPIClient.data(for: req)) != nil

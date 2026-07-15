@@ -1,6 +1,20 @@
 import Combine
 import SwiftUI
 
+@MainActor
+private final class SongDownloadRowState: ObservableObject {
+    @Published private(set) var status: SongDownloadStatus
+    private var cancellable: AnyCancellable?
+
+    init(songID: String) {
+        let manager = DownloadManager.shared
+        status = manager.status(for: songID)
+        cancellable = manager.observeStatus(for: songID) { [weak self] status in
+            self?.status = status
+        }
+    }
+}
+
 enum SongRowSize {
     case compact, regular
     var artSize: CGFloat {
@@ -43,8 +57,22 @@ struct SongRow: View {
     var showsArtwork: Bool = true
     var trailing: AnyView?
     @ObservedObject private var playback = PlaybackRowState.shared
-    @StateObject private var downloads = DownloadManager.shared
+    @StateObject private var downloadState: SongDownloadRowState
     @State private var showAddToPlaylist = false
+
+    init(
+        song: Song,
+        size: SongRowSize,
+        showsArtwork: Bool = true,
+        trailing: AnyView? = nil
+    ) {
+        self.song = song
+        self.size = size
+        self.showsArtwork = showsArtwork
+        self.trailing = trailing
+        _downloadState = StateObject(wrappedValue: SongDownloadRowState(songID: song.id))
+    }
+
     private var isCurrentSong: Bool {
         playback.currentSongID == song.id
     }
@@ -86,12 +114,12 @@ struct SongRow: View {
                     .lineLimit(1)
             }
             Spacer()
-            if downloads.isDownloaded(song.id) {
+            if downloadState.status.isDownloaded {
                 Image(systemName: "arrow.down.circle.fill")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .accessibilityLabel("Downloaded")
-            } else if downloads.isDownloading(song.id) {
+            } else if downloadState.status.isDownloading {
                 ProgressView()
                     .controlSize(.small)
             }
@@ -392,8 +420,15 @@ private struct SongRowAccessibilityModifier: ViewModifier {
     var isPending = false
     let onPlay: () -> Void
     @ObservedObject private var playback = PlaybackRowState.shared
-    @ObservedObject private var downloads = DownloadManager.shared
+    @StateObject private var downloadState: SongDownloadRowState
     @ObservedObject private var favorites = FavoritesManager.shared
+
+    init(song: Song, isPending: Bool, onPlay: @escaping () -> Void) {
+        self.song = song
+        self.isPending = isPending
+        self.onPlay = onPlay
+        _downloadState = StateObject(wrappedValue: SongDownloadRowState(songID: song.id))
+    }
 
     func body(content: Content) -> some View {
         content
@@ -430,9 +465,9 @@ private struct SongRowAccessibilityModifier: ViewModifier {
         if favorites.isFavorite(song.id) {
             values.append("Favorite")
         }
-        if downloads.isDownloaded(song.id) {
+        if downloadState.status.isDownloaded {
             values.append("Downloaded")
-        } else if downloads.isDownloading(song.id) {
+        } else if downloadState.status.isDownloading {
             values.append("Downloading")
         }
         return values.joined(separator: ", ")
@@ -450,10 +485,10 @@ private struct SongRowAccessibilityModifier: ViewModifier {
     }
 
     private var downloadActionTitle: String {
-        if downloads.isDownloaded(song.id) {
+        if downloadState.status.isDownloaded {
             return "Remove Download"
         }
-        if downloads.isDownloading(song.id) {
+        if downloadState.status.isDownloading {
             return "Cancel Download"
         }
         return "Download"
@@ -470,10 +505,11 @@ private struct SongRowAccessibilityModifier: ViewModifier {
     }
 
     private func performDownloadAction() {
-        if downloads.isDownloaded(song.id) {
+        let downloads = DownloadManager.shared
+        if downloadState.status.isDownloaded {
             AppHaptic.warning.play()
             downloads.remove(songID: song.id)
-        } else if downloads.isDownloading(song.id) {
+        } else if downloadState.status.isDownloading {
             AppHaptic.selection.play()
             downloads.cancel(songID: song.id)
         } else {

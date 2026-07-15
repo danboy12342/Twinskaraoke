@@ -85,6 +85,9 @@ struct PlaylistListView: View {
         .onChange(of: Array(displayedPlaylists.prefix(12)).map(\.id)) { _, _ in
             prefetchArtwork()
         }
+        .onDisappear {
+            ArtworkPrefetcher.shared.cancel(reason: "playlist list")
+        }
     }
 
     private func prefetchArtwork() {

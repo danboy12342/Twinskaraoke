@@ -52,9 +52,8 @@ enum LyricsCacheStore {
     }
 
     private static func cacheFileURL(for songID: String, variant: LyricsCacheVariant) -> URL {
-        let allowed = CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "-_"))
-        let safeID = String(songID.unicodeScalars.map { allowed.contains($0) ? Character($0) : "_" })
-        return cacheDirectory.appendingPathComponent("\(safeID).\(variant.rawValue).json")
+        let storageKey = SongStorageKey.component(for: songID)
+        return cacheDirectory.appendingPathComponent("\(storageKey).\(variant.rawValue).json")
     }
 }
 

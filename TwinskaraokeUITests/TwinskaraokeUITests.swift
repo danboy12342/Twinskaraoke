@@ -286,8 +286,8 @@ final class TwinskaraokeUITests: XCTestCase {
       "Expected Radio to render the featured live episode."
     )
     XCTAssertTrue(
-      accessibleElementExists(identifier: "Radio.FeaturedShowsSection", in: app, timeout: 8),
-      "Expected Radio to render featured shows."
+      app.buttons["Up Next"].waitForExistence(timeout: 8),
+      "Expected Radio to render the live schedule preview."
     )
     XCTAssertTrue(
       accessibleElementExists(identifier: "Radio.HistorySection", in: app, timeout: 8),

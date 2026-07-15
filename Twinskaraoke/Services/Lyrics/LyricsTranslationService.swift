@@ -26,7 +26,7 @@ final class LyricsTranslationService {
         request.httpMethod = "POST"
         request.timeoutInterval = 30
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        if let token = UserDefaults.standard.string(forKey: "nk.token"), !token.isEmpty {
+        if let token = CredentialStore.token {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
         GuestIdentity.applyIfNeeded(to: &request)

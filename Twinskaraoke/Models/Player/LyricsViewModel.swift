@@ -78,16 +78,14 @@ final class LyricsViewModel: ObservableObject {
 
         isLoading = true
         didFail = false
-        let encoded =
-            songID.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? songID
-        guard let url = URL(string: "\(StorageHost.api)/api/songs/\(encoded)/lyrics") else {
+        guard var request = try? KaraokeAPIClient.request(
+            pathSegments: ["api", "songs", songID, "lyrics"]
+        ) else {
             finish(songID: songID, result: .failure)
             return
         }
-        var request = URLRequest(url: url)
         request.cachePolicy = .reloadIgnoringLocalCacheData
         request.timeoutInterval = 15
-        GuestIdentity.applyIfNeeded(to: &request)
         let task = URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
             DispatchQueue.main.async {
                 guard let self else { return }

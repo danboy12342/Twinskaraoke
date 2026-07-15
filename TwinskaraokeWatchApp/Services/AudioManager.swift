@@ -33,6 +33,7 @@ class AudioManager: ObservableObject {
     private var endTimeObserver: NSObjectProtocol?
     private var cancellables = Set<AnyCancellable>()
     private var downloadTask: URLSessionDownloadTask?
+    private var downloadToken: UUID?
     private var recoveringFromBrokenCache: Set<String> = []
     private var playbackRequested = false
     private var shouldResumeAfterInterruption = false
@@ -84,6 +85,7 @@ class AudioManager: ObservableObject {
         cancellables.removeAll()
         setupInterruptionHandler()
         downloadTask?.cancel()
+        downloadToken = nil
         guard let song = currentSong else {
             playbackRequested = false
             isLoading = false
@@ -101,11 +103,18 @@ class AudioManager: ObservableObject {
             return
         }
         isLoading = true
+        let token = UUID()
+        downloadToken = token
         downloadTask = URLSession.shared.downloadTask(with: remoteURL) {
             [weak self] tempURL, response, error in
             let responseAccepted = Self.acceptsAudioResponse(response)
             DispatchQueue.main.async {
-                guard let self else { return }
+                guard let self,
+                      self.downloadToken == token,
+                      self.currentSong?.id == song.id
+                else { return }
+                self.downloadToken = nil
+                self.downloadTask = nil
                 self.isLoading = false
                 guard let tempURL, error == nil else {
                     self.playbackRequested = false
@@ -216,6 +225,8 @@ class AudioManager: ObservableObject {
         let hasPendingDownload = player == nil && (playbackRequested || isLoading)
         if hasPendingDownload && cancelDownload {
             downloadTask?.cancel()
+            downloadToken = nil
+            downloadTask = nil
         }
         guard player != nil || playbackRequested || isLoading else { return false }
         playbackRequested = false
@@ -358,7 +369,8 @@ class AudioManager: ObservableObject {
     }
 
     private func localCacheURL(for songID: String) -> URL {
-        AudioManager.audioCacheDir.appendingPathComponent("\(songID).mp3")
+        let storageKey = SongStorageKey.component(for: songID)
+        return AudioManager.audioCacheDir.appendingPathComponent("\(storageKey).mp3")
     }
 
     private func finishDownloadedPlayback(
@@ -449,6 +461,7 @@ class AudioManager: ObservableObject {
 
     func clearCache() {
         downloadTask?.cancel()
+        downloadToken = nil
         downloadTask = nil
         let fm = FileManager.default
         if let entries = try? fm.contentsOfDirectory(
@@ -489,7 +502,7 @@ class AudioManager: ObservableObject {
     private func validateCacheAndPlay(song: Song, cacheURL: URL) {
         let songID = song.id
         validateCachedFile(at: cacheURL, expectedDuration: song.duration) { [weak self] valid in
-            guard let self, currentSong?.id == songID else { return }
+            guard let self, currentSong?.id == songID, playbackRequested else { return }
             if valid {
                 setupPlayer(with: cacheURL)
                 return
@@ -500,11 +513,18 @@ class AudioManager: ObservableObject {
                 playbackRequested = false
                 return
             }
+            let token = UUID()
+            downloadToken = token
             downloadTask = URLSession.shared.downloadTask(with: remoteURL) {
                 [weak self] tempURL, response, error in
                 let responseAccepted = Self.acceptsAudioResponse(response)
                 DispatchQueue.main.async {
-                    guard let self else { return }
+                    guard let self,
+                          self.downloadToken == token,
+                          self.currentSong?.id == songID
+                    else { return }
+                    self.downloadToken = nil
+                    self.downloadTask = nil
                     self.isLoading = false
                     guard let tempURL, error == nil else {
                         self.playbackRequested = false
@@ -535,11 +555,19 @@ class AudioManager: ObservableObject {
         cleanupPlayer()
         isLoading = true
         downloadTask?.cancel()
+        downloadToken = nil
+        let token = UUID()
+        downloadToken = token
         downloadTask = URLSession.shared.downloadTask(with: remoteURL) {
             [weak self] tempURL, response, error in
             let responseAccepted = Self.acceptsAudioResponse(response)
             DispatchQueue.main.async {
-                guard let self else { return }
+                guard let self,
+                      self.downloadToken == token,
+                      self.currentSong?.id == songID
+                else { return }
+                self.downloadToken = nil
+                self.downloadTask = nil
                 self.isLoading = false
                 guard let tempURL, error == nil else {
                     self.playbackRequested = false

@@ -47,6 +47,10 @@ struct HomeView: View {
             .onAppear {
                 prefetchVisibleArtwork()
             }
+            .onDisappear {
+                ArtworkPrefetcher.shared.cancel(reason: "home songs")
+                ArtworkPrefetcher.shared.cancel(reason: "home playlists")
+            }
         }
     }
 

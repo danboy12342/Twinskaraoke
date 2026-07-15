@@ -14,12 +14,13 @@ final class AuthManager: NSObject, ObservableObject, ASWebAuthenticationPresenta
     @Published private(set) var errorMessage: String?
     private(set) var authToken: String?
     private let defaults = UserDefaults.standard
+    private var webAuthenticationSession: ASWebAuthenticationSession?
 
     private enum K {
-        static let token = "nk.token"
         static let userId = "nk.userId"
         static let username = "nk.username"
         static let avatar = "nk.avatar"
+        static let sessionCommitted = "nk.sessionCommitted"
     }
 
     private enum Endpoint {
@@ -44,10 +45,23 @@ final class AuthManager: NSObject, ObservableObject, ASWebAuthenticationPresenta
     }
 
     private func loadPersisted() {
-        guard
-            let token = defaults.string(forKey: K.token),
-            let username = defaults.string(forKey: K.username)
-        else { return }
+        let token = CredentialStore.token
+        let username = defaults.string(forKey: K.username)
+        let commitMarker = defaults.object(forKey: K.sessionCommitted) as? Bool
+        guard Self.persistedSessionIsComplete(
+            token: token,
+            username: username,
+            commitMarker: commitMarker
+        ), let token, let username
+        else {
+            if token != nil || username != nil || commitMarker != nil {
+                clearPersistedSession()
+            }
+            return
+        }
+        if commitMarker == nil {
+            defaults.set(true, forKey: K.sessionCommitted)
+        }
         authToken = token
         currentUsername = username
         currentUserId = defaults.string(forKey: K.userId)
@@ -55,11 +69,27 @@ final class AuthManager: NSObject, ObservableObject, ASWebAuthenticationPresenta
         isLoggedIn = true
     }
 
-    private func commit(token: String, userId: String, username: String, avatar: String?) {
-        defaults.set(token, forKey: K.token)
+    private func commit(token: String, userId: String, username: String, avatar: String?) throws {
+        let previousUserID = defaults.string(forKey: K.userId)
+        let previousCommitMarker = defaults.object(forKey: K.sessionCommitted)
+        defaults.set(false, forKey: K.sessionCommitted)
+        do {
+            try CredentialStore.saveToken(token)
+        } catch {
+            if let previousCommitMarker {
+                defaults.set(previousCommitMarker, forKey: K.sessionCommitted)
+            } else {
+                defaults.removeObject(forKey: K.sessionCommitted)
+            }
+            throw error
+        }
         defaults.set(userId, forKey: K.userId)
         defaults.set(username, forKey: K.username)
         defaults.set(avatar, forKey: K.avatar)
+        defaults.set(true, forKey: K.sessionCommitted)
+        if previousUserID != userId {
+            clearAccountScopedState()
+        }
         authToken = token
         currentUserId = userId
         currentUsername = username
@@ -94,7 +124,7 @@ final class AuthManager: NSObject, ObservableObject, ASWebAuthenticationPresenta
                 let token = json["token"] as? String
             else { throw AuthError.parse }
             let parsed = parseJwt(token)
-            commit(
+            try commit(
                 token: token,
                 userId: parsed?.id ?? username,
                 username: parsed?.username ?? username,
@@ -107,11 +137,13 @@ final class AuthManager: NSObject, ObservableObject, ASWebAuthenticationPresenta
     }
 
     func loginWithDiscord() async {
+        guard webAuthenticationSession == nil else { return }
         isLoading = true
         errorMessage = nil
         do {
             let verifier = makeVerifier()
             let challenge = makeChallenge(verifier)
+            let state = makeVerifier()
             var comps = URLComponents(string: Endpoint.discordAuth)!
             comps.queryItems = [
                 .init(name: "client_id", value: Endpoint.discordClientId),
@@ -120,42 +152,42 @@ final class AuthManager: NSObject, ObservableObject, ASWebAuthenticationPresenta
                 .init(name: "scope", value: "identify"),
                 .init(name: "code_challenge", value: challenge),
                 .init(name: "code_challenge_method", value: "S256"),
+                .init(name: "state", value: state),
             ]
             let callbackURL = try await withCheckedThrowingContinuation {
                 (cont: CheckedContinuation<URL, Error>) in
-                var didResume = false
-                let resume: (Result<URL, Error>) -> Void = { result in
-                    guard !didResume else { return }
-                    didResume = true
-                    cont.resume(with: result)
-                }
                 let session = ASWebAuthenticationSession(
                     url: comps.url!,
                     callbackURLScheme: "neurokaraoke"
-                ) { url, error in
+                ) { [weak self] url, error in
+                    Task { @MainActor [weak self] in
+                        self?.webAuthenticationSession = nil
+                    }
                     if let error {
-                        resume(.failure(error))
+                        cont.resume(throwing: error)
                         return
                     }
                     guard let url else {
-                        resume(.failure(AuthError.cancelled))
+                        cont.resume(throwing: AuthError.cancelled)
                         return
                     }
-                    resume(.success(url))
+                    cont.resume(returning: url)
                 }
                 session.presentationContextProvider = self
                 session.prefersEphemeralWebBrowserSession = true
+                webAuthenticationSession = session
                 session.start()
             }
             guard
                 let cbComps = URLComponents(url: callbackURL, resolvingAgainstBaseURL: false),
+                cbComps.queryItems?.first(where: { $0.name == "state" })?.value == state,
                 let code = cbComps.queryItems?.first(where: { $0.name == "code" })?.value
             else { throw AuthError.invalidCallback }
             let discordToken = try await exchangeDiscordCode(code, verifier: verifier)
             let nkToken = try await exchangeForNKToken(discordToken)
             let profile = try await fetchDiscordProfile(discordToken)
-            commit(
-                token: nkToken ?? discordToken,
+            try commit(
+                token: nkToken,
                 userId: profile.id,
                 username: profile.username,
                 avatar: profile.avatar
@@ -191,21 +223,35 @@ final class AuthManager: NSObject, ObservableObject, ASWebAuthenticationPresenta
         return at
     }
 
-    private func exchangeForNKToken(_ discordToken: String) async throws -> String? {
+    private func exchangeForNKToken(_ discordToken: String) async throws -> String {
         var req = URLRequest(url: URL(string: Endpoint.nkTokenExchange)!)
         req.httpMethod = "POST"
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
         req.httpBody = try JSONSerialization.data(withJSONObject: ["accessToken": discordToken])
         let (data, resp) = try await URLSession.shared.data(for: req)
-        guard let http = resp as? HTTPURLResponse, http.statusCode == 200 else { return nil }
-        let raw =
-            String(data: data, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        guard let http = resp as? HTTPURLResponse, http.statusCode == 200 else {
+            throw AuthError.http(
+                (resp as? HTTPURLResponse)?.statusCode ?? 0,
+                String(data: data, encoding: .utf8) ?? ""
+            )
+        }
+        guard let token = Self.exchangedToken(from: data) else { throw AuthError.parse }
+        return token
+    }
+
+    nonisolated static func exchangedToken(from data: Data) -> String? {
+        let raw = String(data: data, encoding: .utf8)?
+            .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let token: String?
         if raw.hasPrefix("{"),
            let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
         {
-            return json["token"] as? String ?? json["accessToken"] as? String
+            token = json["token"] as? String ?? json["accessToken"] as? String
+        } else {
+            token = raw.trimmingCharacters(in: CharacterSet(charactersIn: "\""))
         }
-        return raw.trimmingCharacters(in: CharacterSet(charactersIn: "\""))
+        guard let token, !token.isEmpty else { return nil }
+        return token
     }
 
     private struct DiscordProfile {
@@ -265,12 +311,34 @@ final class AuthManager: NSObject, ObservableObject, ASWebAuthenticationPresenta
     }
 
     func logout() {
-        [K.token, K.userId, K.username, K.avatar].forEach { defaults.removeObject(forKey: $0) }
+        clearPersistedSession()
+        clearAccountScopedState()
         authToken = nil
         currentUserId = nil
         currentUsername = nil
         currentAvatar = nil
         isLoggedIn = false
+    }
+
+    nonisolated static func persistedSessionIsComplete(
+        token: String?,
+        username: String?,
+        commitMarker: Bool?
+    ) -> Bool {
+        guard let token, !token.isEmpty, let username, !username.isEmpty else { return false }
+        return commitMarker != false
+    }
+
+    private func clearPersistedSession() {
+        CredentialStore.deleteToken()
+        [K.userId, K.username, K.avatar, K.sessionCommitted].forEach {
+            defaults.removeObject(forKey: $0)
+        }
+    }
+
+    private func clearAccountScopedState() {
+        FavoritesManager.shared.clear()
+        UserPlaylistsManager.shared.clear()
     }
 
     private func makeVerifier() -> String {

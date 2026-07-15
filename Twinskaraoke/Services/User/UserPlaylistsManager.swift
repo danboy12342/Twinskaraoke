@@ -9,6 +9,7 @@ final class UserPlaylistsManager: ObservableObject {
     @Published private(set) var isLoading = false
 
     private var loaded = false
+    private var stateGeneration = 0
 
     func loadIfNeeded() {
         fetchPlaylists(force: false)
@@ -17,26 +18,31 @@ final class UserPlaylistsManager: ObservableObject {
     func fetchPlaylists(force: Bool = true) {
         guard !isLoading else { return }
         guard force || !loaded else { return }
-        guard UserDefaults.standard.string(forKey: "nk.token") != nil else {
+        guard CredentialStore.isAuthenticated else {
             playlists = []
             loaded = false
             return
         }
 
         isLoading = true
-        Task {
-            defer { isLoading = false }
+        let generation = stateGeneration
+        Task { [weak self] in
+            guard let self else { return }
+            defer {
+                if self.stateGeneration == generation {
+                    self.isLoading = false
+                }
+            }
 
             guard let req = try? KaraokeAPIClient.request(path: "/api/user/playlists"),
                   let data = try? await KaraokeAPIClient.data(for: req),
                   let decoded = try? JSONDecoder().decode([UserPlaylist].self, from: data)
             else { return }
+            guard self.stateGeneration == generation else { return }
 
-            await MainActor.run {
-                self.playlists = decoded
-                self.loaded = true
-                RecentlyAddedTracker.shared.registerIfNew(decoded.map(\.id))
-            }
+            self.playlists = decoded
+            self.loaded = true
+            RecentlyAddedTracker.shared.registerIfNew(decoded.map(\.id))
         }
     }
 
@@ -46,7 +52,7 @@ final class UserPlaylistsManager: ObservableObject {
         isPublic: Bool = false,
         completion: ((Bool) -> Void)? = nil
     ) {
-        guard UserDefaults.standard.string(forKey: "nk.token") != nil else {
+        guard CredentialStore.isAuthenticated else {
             completion?(false)
             return
         }
@@ -78,14 +84,14 @@ final class UserPlaylistsManager: ObservableObject {
         toPlaylist playlistID: String,
         completion: ((Bool) -> Void)? = nil
     ) {
-        guard UserDefaults.standard.string(forKey: "nk.token") != nil else {
+        guard CredentialStore.isAuthenticated else {
             completion?(false)
             return
         }
 
         Task {
             guard var req = try? KaraokeAPIClient.request(
-                path: "/api/user/playlists/\(playlistID)",
+                pathSegments: ["api", "user", "playlists", playlistID],
                 queryItems: [URLQueryItem(name: "songId", value: songID)]
             ) else {
                 completion?(false)
@@ -98,7 +104,9 @@ final class UserPlaylistsManager: ObservableObject {
     }
 
     func clear() {
+        stateGeneration += 1
         playlists = []
         loaded = false
+        isLoading = false
     }
 }

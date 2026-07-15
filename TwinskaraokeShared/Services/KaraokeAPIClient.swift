@@ -119,8 +119,7 @@ nonisolated enum KaraokeAPIClient {
   }
 
   static func fetchSong(id: String) async throws -> Song {
-    let encoded = id.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? id
-    let request = try request(path: "/api/songs/\(encoded)")
+    let request = try request(pathSegments: ["api", "songs", id])
     let data = try await data(for: request)
     if let song = try? decode(Song.self, from: data) { return song }
     if let envelope = try? decode(FavoriteSongEnvelope.self, from: data), let song = envelope.song { return song }
@@ -231,10 +230,7 @@ nonisolated enum KaraokeAPIClient {
   }
 
   private static func playlistDetailData(id: String) async throws -> Data {
-    guard let encodedID = id.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) else {
-      throw APIError.invalidURL
-    }
-    let request = try request(path: "/api/playlist/\(encodedID)")
+    let request = try request(pathSegments: ["api", "playlist", id])
     return try await data(for: request)
   }
 
@@ -289,12 +285,44 @@ nonisolated enum KaraokeAPIClient {
       throw APIError.invalidURL
     }
     var request = URLRequest(url: url)
-    if let token = UserDefaults.standard.string(forKey: "nk.token"), !token.isEmpty {
+    if let token = CredentialStore.token {
       request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
     }
     GuestIdentity.applyIfNeeded(to: &request)
     return request
   }
+
+  static func request(
+    pathSegments: [String],
+    queryItems: [URLQueryItem] = []
+  ) throws -> URLRequest {
+    guard !pathSegments.isEmpty, var components = URLComponents(string: StorageHost.api) else {
+      throw APIError.invalidURL
+    }
+    let encodedSegments = try pathSegments.map { segment -> String in
+      guard !segment.isEmpty,
+            let encoded = segment.addingPercentEncoding(withAllowedCharacters: pathSegmentAllowed)
+      else {
+        throw APIError.invalidURL
+      }
+      return encoded
+    }
+    components.percentEncodedPath = "/" + encodedSegments.joined(separator: "/")
+    components.queryItems = queryItems.isEmpty ? nil : queryItems
+    guard let url = components.url else { throw APIError.invalidURL }
+    var request = URLRequest(url: url)
+    if let token = CredentialStore.token {
+      request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+    }
+    GuestIdentity.applyIfNeeded(to: &request)
+    return request
+  }
+
+  private static let pathSegmentAllowed: CharacterSet = {
+    var allowed = CharacterSet.urlPathAllowed
+    allowed.remove(charactersIn: "/%?#")
+    return allowed
+  }()
 
   static func data(for request: URLRequest) async throws -> Data {
     let maxRetries = 3

@@ -22,14 +22,9 @@ final class PlaylistCoverLoader: ObservableObject {
         artworkURLs = Self.extractArtworkURLs(fromSongs: fallbackSongs)
         loadTask?.cancel()
 
-        let urlString = "\(StorageHost.api)/api/playlist/\(playlistID)"
-        guard let url = URL(string: urlString) else { return }
-
-        var request = URLRequest(url: url)
-        if let token = UserDefaults.standard.string(forKey: "nk.token"), !token.isEmpty {
-            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-        }
-        GuestIdentity.applyIfNeeded(to: &request)
+        guard let request = try? KaraokeAPIClient.request(
+            pathSegments: ["api", "playlist", playlistID]
+        ) else { return }
 
         loadTask = Task { [weak self, request] in
             guard let data = try? await URLSession.shared.data(for: request).0 else { return }

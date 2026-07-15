@@ -1061,9 +1061,9 @@ struct FullScreenPlayerView: View {
             coverArtArtistLink = fallback?.artistLink
             return
         }
-        guard let url = URL(string: "\(StorageHost.api)/api/songs/\(songID)") else { return }
-        var request = URLRequest(url: url)
-        GuestIdentity.applyIfNeeded(to: &request)
+        guard let request = try? KaraokeAPIClient.request(
+            pathSegments: ["api", "songs", songID]
+        ) else { return }
         URLSession.shared.dataTask(with: request) { data, _, _ in
             guard let data,
                   let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],

@@ -11,52 +11,29 @@ final nonisolated class FallbackArtProvider: ObservableObject, @unchecked Sendab
     static let shared = FallbackArtProvider()
 
     private var items: [FallbackArtItem] = []
-    private var cache: [String: FallbackArt] = [:]
     private let lock = NSLock()
-    private let persistKey = "nk.fallbackArtCache"
+    private let legacyBindingsKey = "nk.fallbackArtCache"
+    private let persistedPoolKey = "nk.fallbackArtPool"
+    private let session: URLSession
+    private let targetPoolSize = 12
 
     private init() {
-        loadPersistedCache()
+        let configuration = URLSessionConfiguration.default
+        configuration.httpMaximumConnectionsPerHost = 3
+        configuration.requestCachePolicy = .useProtocolCachePolicy
+        session = URLSession(configuration: configuration)
+        loadPersistedPool()
+        UserDefaults.standard.removeObject(forKey: legacyBindingsKey)
         fetch()
     }
 
     func art(for id: String) -> FallbackArt? {
         lock.lock()
-        if let cached = cache[id] {
-            if let repaired = repairedBindingIfNeeded(for: id, cached: cached) {
-                lock.unlock()
-                return repaired
-            }
-            lock.unlock()
-            return cached
-        }
-        if items.isEmpty {
-            if let persisted = loadPersistedEntry(for: id) {
-                if isPersistedDuplicateWithoutReplacement(for: id, art: persisted) {
-                    cache.removeValue(forKey: id)
-                    removePersistedEntry(id: id)
-                    lock.unlock()
-                    return nil
-                }
-                if let repaired = repairedBindingIfNeeded(for: id, cached: persisted) {
-                    lock.unlock()
-                    return repaired
-                }
-                assign(persisted, to: id)
-                lock.unlock()
-                return persisted
-            }
-            lock.unlock()
-            return nil
-        }
-        guard let item = nextItem(for: id) else {
-            lock.unlock()
-            return nil
-        }
-        let result = FallbackArt(url: item.url, artistName: item.artistName, artistLink: item.artistLink)
-        assign(result, to: id)
-        lock.unlock()
-        return result
+        defer { lock.unlock() }
+
+        guard !items.isEmpty else { return nil }
+        let item = items[Self.fallbackIndex(for: id, count: items.count)]
+        return FallbackArt(url: item.url, artistName: item.artistName, artistLink: item.artistLink)
     }
 
     func url(for id: String) -> URL? {
@@ -64,10 +41,7 @@ final nonisolated class FallbackArtProvider: ObservableObject, @unchecked Sendab
     }
 
     func resetBindings() {
-        lock.lock()
-        cache.removeAll()
-        lock.unlock()
-        UserDefaults.standard.removeObject(forKey: persistKey)
+        UserDefaults.standard.removeObject(forKey: legacyBindingsKey)
     }
 
     var randomURL: URL? {
@@ -77,7 +51,7 @@ final nonisolated class FallbackArtProvider: ObservableObject, @unchecked Sendab
             return items[Int.random(in: 0 ..< items.count)].url
         }
 
-        return cache.values.map(\.url).randomElement()
+        return nil
     }
 
     private static func stableHash(_ string: String) -> Int {
@@ -88,104 +62,21 @@ final nonisolated class FallbackArtProvider: ObservableObject, @unchecked Sendab
         return Int(hash % UInt64(Int.max))
     }
 
-    private func repairedBindingIfNeeded(for id: String, cached: FallbackArt) -> FallbackArt? {
-        guard !items.isEmpty else {
-            cache[id] = cached
-            return nil
-        }
-        let availableURLs = Set(items.map(\.url))
-        let staleBinding = !availableURLs.contains(cached.url)
-        let usedByOtherSong = cache.contains { otherID, otherArt in
-            otherID != id && otherArt.url == cached.url
-        }
-        guard staleBinding || usedByOtherSong else {
-            cache[id] = cached
-            return nil
-        }
-        guard let item = nextItem(for: id, excludingID: id) else {
-            cache.removeValue(forKey: id)
-            removePersistedEntry(id: id)
-            return nil
-        }
-        let replacement = FallbackArt(url: item.url, artistName: item.artistName, artistLink: item.artistLink)
-        assign(replacement, to: id)
-        return replacement
+    nonisolated static func fallbackIndex(for id: String, count: Int) -> Int {
+        guard count > 0 else { return 0 }
+        return stableHash(id) % count
     }
 
-    private func nextItem(for id: String, excludingID: String? = nil) -> FallbackArtItem? {
-        guard !items.isEmpty else { return nil }
-        let availableURLs = Set(items.map(\.url))
-        let used = Set(
-            cache.compactMap { entry -> URL? in
-                if entry.key == excludingID { return nil }
-                return availableURLs.contains(entry.value.url) ? entry.value.url : nil
-            }
-        )
-        let start = Self.stableHash(id) % items.count
-        for offset in 0 ..< items.count {
-            let item = items[(start + offset) % items.count]
-            if !used.contains(item.url) {
-                return item
-            }
-        }
-        return items[start]
+    private func loadPersistedPool() {
+        guard let data = UserDefaults.standard.data(forKey: persistedPoolKey),
+              let persistedItems = try? JSONDecoder().decode([FallbackArtItem].self, from: data)
+        else { return }
+        items = Array(persistedItems.prefix(targetPoolSize))
     }
 
-    private func isPersistedDuplicateWithoutReplacement(for id: String, art: FallbackArt) -> Bool {
-        items.isEmpty
-            && cache.contains { otherID, otherArt in
-                otherID != id && otherArt.url == art.url
-            }
-    }
-
-    private func assign(_ art: FallbackArt, to id: String) {
-        cache[id] = art
-        persistEntry(id: id, url: art.url, artistName: art.artistName, artistLink: art.artistLink)
-    }
-
-    private func loadPersistedCache() {
-        guard let dict = UserDefaults.standard.dictionary(forKey: persistKey) as? [String: [String: String]] else { return }
-        var usedURLs = Set<URL>()
-        var cleaned = dict
-        for (id, entry) in dict {
-            guard let urlStr = entry["url"], let url = URL(string: urlStr) else {
-                cleaned.removeValue(forKey: id)
-                continue
-            }
-            guard !usedURLs.contains(url) else {
-                cleaned.removeValue(forKey: id)
-                continue
-            }
-            usedURLs.insert(url)
-            cache[id] = FallbackArt(url: url, artistName: entry["artistName"], artistLink: entry["artistLink"])
-        }
-        if cleaned.count != dict.count {
-            UserDefaults.standard.set(cleaned, forKey: persistKey)
-        }
-    }
-
-    private func loadPersistedEntry(for id: String) -> FallbackArt? {
-        guard let dict = UserDefaults.standard.dictionary(forKey: persistKey) as? [String: [String: String]],
-              let entry = dict[id],
-              let urlStr = entry["url"],
-              let url = URL(string: urlStr)
-        else { return nil }
-        return FallbackArt(url: url, artistName: entry["artistName"], artistLink: entry["artistLink"])
-    }
-
-    private func persistEntry(id: String, url: URL, artistName: String?, artistLink: String?) {
-        var dict = (UserDefaults.standard.dictionary(forKey: persistKey) as? [String: [String: String]]) ?? [:]
-        var entry: [String: String] = ["url": url.absoluteString]
-        if let name = artistName { entry["artistName"] = name }
-        if let link = artistLink { entry["artistLink"] = link }
-        dict[id] = entry
-        UserDefaults.standard.set(dict, forKey: persistKey)
-    }
-
-    private func removePersistedEntry(id: String) {
-        var dict = (UserDefaults.standard.dictionary(forKey: persistKey) as? [String: [String: String]]) ?? [:]
-        dict.removeValue(forKey: id)
-        UserDefaults.standard.set(dict, forKey: persistKey)
+    private func persistPool(_ pool: [FallbackArtItem]) {
+        guard let data = try? JSONEncoder().encode(Array(pool.prefix(targetPoolSize))) else { return }
+        UserDefaults.standard.set(data, forKey: persistedPoolKey)
     }
 
     // Collects results from concurrent fetch callbacks; guarded by syncQueue.
@@ -194,7 +85,8 @@ final nonisolated class FallbackArtProvider: ObservableObject, @unchecked Sendab
     }
 
     private func fetch() {
-        let fetchCount = 48
+        let fetchCount = max(0, targetPoolSize - items.count)
+        guard fetchCount > 0 else { return }
         let fetchedItems = ItemCollector()
         let group = DispatchGroup()
         let syncQueue = DispatchQueue(label: "com.twinskaraoke.fallbackart.sync")
@@ -211,9 +103,12 @@ final nonisolated class FallbackArtProvider: ObservableObject, @unchecked Sendab
             request.timeoutInterval = 10
             GuestIdentity.applyIfNeeded(to: &request)
 
-            retryDataTask(with: request, maxAttempts: 3) { data, _, _ in
+            retryDataTask(with: request, maxAttempts: 2) { data, response, error in
                 defer { group.leave() }
-                guard let data,
+                guard error == nil,
+                      let httpResponse = response as? HTTPURLResponse,
+                      (200 ... 299).contains(httpResponse.statusCode),
+                      let data,
                       let item = try? JSONDecoder().decode(RandomArtItem.self, from: data),
                       let baseURL = URL(string: item.url)
                 else { return }
@@ -223,36 +118,29 @@ final nonisolated class FallbackArtProvider: ObservableObject, @unchecked Sendab
                     ?? URL(string: "\(item.url)/width=480,quality=85,format=webp")
                     ?? baseURL
 
-                group.enter()
-                var headRequest = URLRequest(url: urlWithQuality)
-                headRequest.httpMethod = "HEAD"
-                headRequest.timeoutInterval = 10
-
-                self.retryDataTask(with: headRequest, maxAttempts: 3) { _, response, error in
-                    defer { group.leave() }
-                    guard error == nil,
-                          let httpResponse = response as? HTTPURLResponse,
-                          (200 ... 299).contains(httpResponse.statusCode)
-                    else { return }
-
-                    let fallbackItem = FallbackArtItem(url: urlWithQuality, artistName: item.artistCredit, artistLink: nil)
-                    syncQueue.sync {
-                        fetchedItems.items.append(fallbackItem)
-                    }
+                let fallbackItem = FallbackArtItem(
+                    url: urlWithQuality,
+                    artistName: item.artistCredit,
+                    artistLink: nil
+                )
+                syncQueue.sync {
+                    fetchedItems.items.append(fallbackItem)
                 }
             }
         }
 
         group.notify(queue: .main) { [weak self] in
             guard let self else { return }
-            let uniqueItems = fetchedItems.items.reduce(into: [FallbackArtItem]()) { result, item in
+            lock.lock()
+            let uniqueItems = (items + fetchedItems.items).reduce(into: [FallbackArtItem]()) { result, item in
                 guard !result.contains(where: { $0.url == item.url }) else { return }
                 result.append(item)
             }
-            lock.lock()
-            items = uniqueItems
-            repairDuplicateBindings()
+            items = Array(uniqueItems.prefix(targetPoolSize))
+            let updatedPool = items
             lock.unlock()
+            persistPool(updatedPool)
+            UserDefaults.standard.removeObject(forKey: legacyBindingsKey)
 
             objectWillChange.send()
         }
@@ -264,7 +152,7 @@ final nonisolated class FallbackArtProvider: ObservableObject, @unchecked Sendab
         attempt: Int = 1,
         completion: @escaping @Sendable (Data?, URLResponse?, Error?) -> Void
     ) {
-        URLSession.shared.dataTask(with: request) { data, response, error in
+        session.dataTask(with: request) { data, response, error in
             let shouldRetry = error != nil || (response as? HTTPURLResponse).map { !((200 ... 299).contains($0.statusCode)) } ?? true
 
             if shouldRetry, attempt < maxAttempts {
@@ -278,29 +166,9 @@ final nonisolated class FallbackArtProvider: ObservableObject, @unchecked Sendab
         }.resume()
     }
 
-    private func repairDuplicateBindings() {
-        guard !items.isEmpty else { return }
-        let availableURLs = Set(items.map(\.url))
-        var used = Set<URL>()
-        for id in cache.keys.sorted() {
-            guard let art = cache[id] else { continue }
-            if availableURLs.contains(art.url), !used.contains(art.url) {
-                used.insert(art.url)
-                continue
-            }
-            cache.removeValue(forKey: id)
-            guard let item = nextItem(for: id) else {
-                removePersistedEntry(id: id)
-                continue
-            }
-            let replacement = FallbackArt(url: item.url, artistName: item.artistName, artistLink: item.artistLink)
-            assign(replacement, to: id)
-            used.insert(replacement.url)
-        }
-    }
 }
 
-private nonisolated struct FallbackArtItem {
+private nonisolated struct FallbackArtItem: Codable {
     let url: URL
     let artistName: String?
     let artistLink: String?

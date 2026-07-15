@@ -462,7 +462,10 @@ class AudioPlayerManager: ObservableObject {
     init() {
         configureAudioSessionCategory()
         activateAudioSession()
-        AudioPlayerManager.cleanupOrphanPartialCacheFiles()
+        let cacheCleanupCutoff = Date()
+        Task.detached(priority: .utility) {
+            AudioCacheStore.cleanupLegacyArtifacts(createdBefore: cacheCleanupCutoff)
+        }
         DebugLogger.log("AudioPlayerManager initializing", category: .playback)
         setupRemoteCommands()
 
@@ -635,19 +638,7 @@ class AudioPlayerManager: ObservableObject {
     }
 
     private func localPlaybackFileURL(for song: Song) -> URL? {
-        if let downloaded = DownloadManager.shared.playableURL(for: song) {
-            return downloaded
-        }
-        let expectedDuration = song.duration > 0 ? TimeInterval(song.duration) : nil
-        return AudioCacheStore.playableMainURL(for: song.id, expectedRemoteURL: song.audioURL, expectedDuration: expectedDuration)
-    }
-
-    /// Local file lookup for the tap-to-play path: never decompresses on the
-    /// main thread. Compressed-only cache entries return nil here and are
-    /// recovered off-main by the remote playback cache task (which hits the
-    /// same cache and decompresses before playing, without re-downloading).
-    private func immediateLocalPlaybackFileURL(for song: Song) -> URL? {
-        if let downloaded = DownloadManager.shared.playableURL(for: song) {
+        if let downloaded = DownloadManager.shared.immediatelyPlayableURL(for: song) {
             return downloaded
         }
         let expectedDuration = song.duration > 0 ? TimeInterval(song.duration) : nil
@@ -656,6 +647,14 @@ class AudioPlayerManager: ObservableObject {
             expectedRemoteURL: song.audioURL,
             expectedDuration: expectedDuration
         )
+    }
+
+    /// Local file lookup for the tap-to-play path: never decompresses on the
+    /// main thread. Compressed-only cache entries return nil here and are
+    /// recovered off-main by the remote playback cache task (which hits the
+    /// same cache and decompresses before playing, without re-downloading).
+    private func immediateLocalPlaybackFileURL(for song: Song) -> URL? {
+        localPlaybackFileURL(for: song)
     }
 
     private func cachedStems(for song: Song, sourceURL: URL? = nil) -> CachedStems? {
@@ -948,7 +947,10 @@ class AudioPlayerManager: ObservableObject {
     private func scheduleIdleCacheCompression(excluding songIDs: Set<String>) {
         cacheCompressionTask?.cancel()
         cacheCompressionTask = Task.detached(priority: .utility) {
+            try? await Task.sleep(for: .seconds(2))
+            guard !Task.isCancelled else { return }
             AudioCacheStore.compressIdleAssets(excluding: songIDs)
+            guard !Task.isCancelled else { return }
             await MainActor.run {
                 CacheManager.shared.refreshSizes()
             }
@@ -1275,7 +1277,7 @@ class AudioPlayerManager: ObservableObject {
             return
         }
         if let fileURL {
-            startPlayingFile(fileURL)
+            startPlayingFile(fileURL, resetSeparation: false)
             prepareBackgroundStemPlaybackIfPossible(for: song)
             applyMLSeparationIfNeeded()
             return
@@ -1287,7 +1289,12 @@ class AudioPlayerManager: ObservableObject {
             return
         }
         let expectedDuration = song.duration > 0 ? TimeInterval(song.duration) : nil
-        startStreamPlayback(url: remoteURL, songID: song.id, expectedDuration: expectedDuration)
+        startStreamPlayback(
+            url: remoteURL,
+            songID: song.id,
+            expectedDuration: expectedDuration,
+            resetSeparationOnCacheReady: false
+        )
         if aiEnabled {
             if anyAIEffectActive {
                 applyMLSeparationIfNeeded()
@@ -1328,15 +1335,21 @@ class AudioPlayerManager: ObservableObject {
         upcomingSong = nil
     }
 
-    private func startPlayingFile(_ url: URL, startAt: TimeInterval = 0) {
+    private func startPlayingFile(
+        _ url: URL,
+        startAt: TimeInterval = 0,
+        resetSeparation: Bool = true
+    ) {
         suppressPlaybackEndedCallbacks()
         stopRadioPlayer()
         stopStreamPlayer()
         instrumentalTask?.cancel()
         instrumentalTask = nil
-        separationGeneration &+= 1
-        VocalSeparator.shared.cancel()
-        VocalSeparator.shared.cleanupRealtimeTemp()
+        if resetSeparation {
+            separationGeneration &+= 1
+            VocalSeparator.shared.cancel()
+            VocalSeparator.shared.cleanupRealtimeTemp()
+        }
         streamStartedAt = nil
         currentPlaybackURL = url
         configureAudioSessionCategory()
@@ -1408,7 +1421,7 @@ class AudioPlayerManager: ObservableObject {
         }
         let resumeAt = max(0, startAt.isFinite ? startAt : 0)
         if let fileURL = localPlaybackFileURL(for: song) {
-            startPlayingFile(fileURL, startAt: resumeAt)
+            startPlayingFile(fileURL, startAt: resumeAt, resetSeparation: false)
             return
         }
         guard let remoteURL = song.audioURL else {
@@ -1420,7 +1433,13 @@ class AudioPlayerManager: ObservableObject {
             return
         }
         let expectedDuration = song.duration > 0 ? TimeInterval(song.duration) : nil
-        startStreamPlayback(url: remoteURL, songID: song.id, expectedDuration: expectedDuration, startAt: resumeAt)
+        startStreamPlayback(
+            url: remoteURL,
+            songID: song.id,
+            expectedDuration: expectedDuration,
+            startAt: resumeAt,
+            resetSeparationOnCacheReady: false
+        )
     }
 
     /// Returns true when a pause request matched an active or resumable playback path.
@@ -1588,14 +1607,30 @@ class AudioPlayerManager: ObservableObject {
             refreshManagedPlayerState(player, kind: .stream)
             return true
         }
-        guard currentSong != nil else { return false }
-        if !isPlaying, avEngine.currentURL == nil, let song = currentSong,
-           let fileURL = localPlaybackFileURL(for: song)
-        {
+        guard let song = currentSong else { return false }
+        if !isPlaying, avEngine.currentURL == nil {
             let resumeAt = preferredStreamResumeTime(for: song) ?? lastKnownPlaybackTime
-            clearPreferredStreamResumeTime()
-            startPlayingFile(fileURL, startAt: resumeAt)
-            return true
+            if let fileURL = localPlaybackFileURL(for: song) {
+                clearPreferredStreamResumeTime()
+                startPlayingFile(fileURL, startAt: resumeAt)
+                return true
+            }
+            if let remoteURL = song.audioURL {
+                let expectedDuration = song.duration > 0 ? TimeInterval(song.duration) : nil
+                startStreamPlayback(
+                    url: remoteURL,
+                    songID: song.id,
+                    expectedDuration: expectedDuration,
+                    startAt: resumeAt
+                )
+                return true
+            }
+            setPlaybackState(
+                playing: false,
+                buffering: false,
+                reason: "resume.file.noSource.\(source)"
+            )
+            return false
         }
         guard !isPlaying else {
             setPlaybackState(
@@ -1991,7 +2026,8 @@ class AudioPlayerManager: ObservableObject {
         songID: String,
         expectedDuration: TimeInterval? = nil,
         startAt: TimeInterval = 0,
-        autoplay: Bool = true
+        autoplay: Bool = true,
+        resetSeparationOnCacheReady: Bool = true
     ) {
         stopStreamPlayer()
         stopRadioPlayer()
@@ -2039,7 +2075,11 @@ class AudioPlayerManager: ObservableObject {
                     if streamPlaybackRequested {
                         let resumeAt = preferredStreamResumeTime(for: currentSong) ?? startAt
                         clearPreferredStreamResumeTime()
-                        startPlayingFile(cachedURL, startAt: resumeAt)
+                        startPlayingFile(
+                            cachedURL,
+                            startAt: resumeAt,
+                            resetSeparation: resetSeparationOnCacheReady
+                        )
                     } else {
                         currentPlaybackURL = cachedURL
                         setPlaybackState(
@@ -2102,6 +2142,7 @@ class AudioPlayerManager: ObservableObject {
             return cachedURL
         }
 
+        _ = AudioCacheStore.ensureSongDirectory(for: songID)
         let songFiles = AudioCacheStore.files(for: songID)
         DebugLogger.log("Remote playback cache start for \(songID)", category: .cache)
         try? FileManager.default.removeItem(at: songFiles.mainPartial)
@@ -2131,6 +2172,14 @@ class AudioPlayerManager: ObservableObject {
         try Task.checkCancellation()
 
         guard AudioCacheStore.isPlayableAudioFile(at: songFiles.mainPartial) else {
+            try? FileManager.default.removeItem(at: songFiles.mainPartial)
+            throw RemotePlaybackCacheError.invalidAudio
+        }
+        let actualDuration = AudioCacheStore.audioDuration(at: songFiles.mainPartial)
+        guard AudioCacheStore.durationAppearsComplete(
+            actualDuration: actualDuration,
+            expectedDuration: expectedDuration
+        ) else {
             try? FileManager.default.removeItem(at: songFiles.mainPartial)
             throw RemotePlaybackCacheError.invalidAudio
         }
@@ -2252,10 +2301,6 @@ class AudioPlayerManager: ObservableObject {
             nowPlayingArtwork = nil
         #endif
         CacheManager.shared.refreshSizes()
-    }
-
-    private static func cleanupOrphanPartialCacheFiles() {
-        AudioCacheStore.cleanupLegacyArtifacts()
     }
 
     private func stemsForCachedAIMode(song: Song) -> CachedStems? {
@@ -2950,12 +2995,11 @@ class AudioPlayerManager: ObservableObject {
         if let cached = LyricsCacheStore.load(songID: songID, variant: .original) {
             return cached
         }
-        let encoded = songID.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? songID
-        guard let url = URL(string: "\(StorageHost.api)/api/songs/\(encoded)/lyrics") else { return nil }
-        var request = URLRequest(url: url)
+        guard var request = try? KaraokeAPIClient.request(
+            pathSegments: ["api", "songs", songID, "lyrics"]
+        ) else { return nil }
         request.cachePolicy = .reloadIgnoringLocalCacheData
         request.timeoutInterval = 15
-        GuestIdentity.applyIfNeeded(to: &request)
         do {
             let (data, response) = try await URLSession.shared.data(for: request)
             guard !Task.isCancelled else { return nil }
@@ -3029,7 +3073,7 @@ class AudioPlayerManager: ObservableObject {
     private func reportPlayCount(for songID: String) {
         Task {
             guard var req = try? KaraokeAPIClient.request(
-                path: "/api/songs/playCount/\(songID)"
+                pathSegments: ["api", "songs", "playCount", songID]
             ) else { return }
             req.httpMethod = "PUT"
             let _ = try? await KaraokeAPIClient.data(for: req)

@@ -32,7 +32,7 @@ final class PlaylistListLoader: ObservableObject {
             return
         }
         var request = URLRequest(url: url)
-        if let token = UserDefaults.standard.string(forKey: "nk.token") {
+        if let token = CredentialStore.token {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
         GuestIdentity.applyIfNeeded(to: &request)

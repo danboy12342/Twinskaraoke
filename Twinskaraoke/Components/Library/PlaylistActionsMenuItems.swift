@@ -70,18 +70,14 @@ struct PlaylistActionsMenuItems: View {
             } else if allDownloaded {
                 Button(role: .destructive) {
                     AppHaptic.warning.play()
-                    for s in songs {
-                        DownloadManager.shared.remove(songID: s.id)
-                    }
+                    DownloadManager.shared.remove(songIDs: songs.map(\.id))
                 } label: {
                     Label("Remove Downloads", systemImage: "trash")
                 }
             } else {
                 Button {
                     AppHaptic.success.play()
-                    for s in downloadState.pendingSongs {
-                        DownloadManager.shared.download(song: s)
-                    }
+                    DownloadManager.shared.download(songs: downloadState.pendingSongs)
                 } label: {
                     let label = pendingCount < songs.count ? "Download Remaining" : "Download"
                     Label(label, systemImage: "arrow.down.circle")

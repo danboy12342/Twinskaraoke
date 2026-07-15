@@ -16,6 +16,7 @@ final class CacheManager: ObservableObject {
     @Published private(set) var lyricsCacheSize: UInt64 = 0
 
     private let fm = FileManager.default
+    private var sizeRefreshTask: Task<Void, Never>?
 
     // Maintenance walks entire cache directories (music cache can hold
     // gigabytes across hundreds of folders). That file I/O must stay off the
@@ -54,10 +55,16 @@ final class CacheManager: ObservableObject {
     }
 
     func refreshSizes() {
-        let directories = Self.directories
-        Self.maintenanceQueue.async { [weak self] in
-            guard let self else { return }
-            publishSizes(computeSizesBlocking(directories: directories))
+        sizeRefreshTask?.cancel()
+        sizeRefreshTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(for: .milliseconds(500))
+            guard let self, !Task.isCancelled else { return }
+            self.sizeRefreshTask = nil
+            let directories = Self.directories
+            Self.maintenanceQueue.async { [weak self] in
+                guard let self else { return }
+                publishSizes(computeSizesBlocking(directories: directories))
+            }
         }
     }
 
@@ -72,9 +79,13 @@ final class CacheManager: ObservableObject {
 
     func enforceMusicCacheLimits(excluding songIDs: Set<String> = []) {
         let musicDirectory = AudioPlayerManager.audioCacheDir
+        let protectedStorageKeys = SongStorageKey.components(for: songIDs)
         Self.maintenanceQueue.async { [weak self] in
             guard let self else { return }
-            let size = enforceMusicCacheLimitsBlocking(musicDirectory: musicDirectory, excluding: songIDs)
+            let size = enforceMusicCacheLimitsBlocking(
+                musicDirectory: musicDirectory,
+                excluding: protectedStorageKeys
+            )
             publishSizes((image: nil, music: size, lyrics: nil))
         }
     }
@@ -116,25 +127,42 @@ final class CacheManager: ObservableObject {
 
     func clearImageCache() {
         SDImageCache.shared.clearMemory()
-        SDImageCache.shared.clearDisk(onCompletion: nil)
         let dir = Self.imageCacheDirectory
-        removeAllFiles(in: dir)
-        FallbackArtProvider.shared.resetBindings()
-        imageCacheSize = 0
-        DebugLogger.log("Image cache cleared", category: .cache)
+        Self.maintenanceQueue.async { [weak self] in
+            guard let self else { return }
+            removeAllFiles(in: dir)
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                FallbackArtProvider.shared.resetBindings()
+                imageCacheSize = 0
+                DebugLogger.log("Image cache cleared", category: .cache)
+            }
+        }
     }
 
     func clearMusicCache() {
         let dir = AudioPlayerManager.audioCacheDir
-        removeAllFiles(in: dir)
-        musicCacheSize = 0
-        DebugLogger.log("Music cache cleared", category: .cache)
+        Self.maintenanceQueue.async { [weak self] in
+            guard let self else { return }
+            removeAllFiles(in: dir)
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                musicCacheSize = 0
+                DebugLogger.log("Music cache cleared", category: .cache)
+            }
+        }
     }
 
     func clearLyricsCache() {
-        LyricsCacheStore.clear()
-        lyricsCacheSize = 0
-        DebugLogger.log("Lyrics cache cleared", category: .cache)
+        Self.maintenanceQueue.async { [weak self] in
+            guard let self else { return }
+            LyricsCacheStore.clear()
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                lyricsCacheSize = 0
+                DebugLogger.log("Lyrics cache cleared", category: .cache)
+            }
+        }
     }
 
     func formattedImageCacheSize() -> String {
@@ -416,11 +444,15 @@ final class CacheManager: ObservableObject {
             .map(\.0)
     }
 
-    private func removeAllFiles(in directory: URL) {
-        guard let entries = try? fm.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil)
+    private nonisolated func removeAllFiles(in directory: URL) {
+        let fileManager = FileManager.default
+        guard let entries = try? fileManager.contentsOfDirectory(
+            at: directory,
+            includingPropertiesForKeys: nil
+        )
         else { return }
         for entry in entries {
-            try? fm.removeItem(at: entry)
+            try? fileManager.removeItem(at: entry)
         }
     }
 

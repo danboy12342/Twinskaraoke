@@ -58,8 +58,9 @@ final class VocalSeparator: ObservableObject {
     private var activeTask: Task<URL, Error>?
     private var activeTaskKind: SeparationTaskKind?
     private var backgroundAnalysisTask: Task<Void, Never>?
+    private var realtimeCleanupTask: Task<Void, Never>?
 
-    private static var realtimeTempDir: URL {
+    private nonisolated static var realtimeTempDir: URL {
         let dir = FileManager.default.temporaryDirectory
             .appendingPathComponent("RealtimeStems", isDirectory: true)
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
@@ -162,6 +163,7 @@ final class VocalSeparator: ObservableObject {
         DebugLogger.log("Starting full separation for \(songID)", category: .separation)
         processingSongID = songID
         activeTaskKind = initiatedByBackground ? .background : .foreground
+        _ = AudioCacheStore.ensureSongDirectory(for: songID)
         let songFiles = AudioCacheStore.files(for: songID)
         let vocalsURL = songFiles.vocals
         let instrumentsURL = songFiles.instruments
@@ -225,8 +227,9 @@ final class VocalSeparator: ObservableObject {
 
         processingSongID = songID
         activeTaskKind = .foreground
-        let vocalsURL = Self.realtimeTempDir.appendingPathComponent("\(songID).vocals.wav")
-        let instrumentsURL = Self.realtimeTempDir.appendingPathComponent("\(songID).instruments.wav")
+        let storageKey = SongStorageKey.component(for: songID)
+        let vocalsURL = Self.realtimeTempDir.appendingPathComponent("\(storageKey).vocals.wav")
+        let instrumentsURL = Self.realtimeTempDir.appendingPathComponent("\(storageKey).instruments.wav")
         let modelRef = modelURL
 
         let task = Task<URL, Error>.detached(priority: .utility) {
@@ -235,7 +238,7 @@ final class VocalSeparator: ObservableObject {
                 let trimmedTemp: URL?
                 if normalizedStart > 1.0 {
                     let tmp = FileManager.default.temporaryDirectory
-                        .appendingPathComponent("\(songID).rt.trim.m4a")
+                        .appendingPathComponent("\(storageKey).rt.trim.m4a")
                     try await Self.trim(source: sourceURL, from: normalizedStart, to: tmp)
                     trimmedSource = tmp
                     trimmedTemp = tmp
@@ -327,6 +330,9 @@ final class VocalSeparator: ObservableObject {
     }
 
     func cancelBackgroundAnalysis() {
+        let hadWork = backgroundAnalysisTask != nil
+            || activeTaskKind == .background
+            || isBackgroundAnalyzing
         backgroundAnalysisTask?.cancel()
         backgroundAnalysisTask = nil
         if activeTaskKind == .background {
@@ -338,37 +344,72 @@ final class VocalSeparator: ObservableObject {
             old?.cancel()
         }
         isBackgroundAnalyzing = false
-        DebugLogger.log("Background analysis cancelled", category: .ai)
+        if hadWork {
+            DebugLogger.log("Background analysis cancelled", category: .ai)
+        }
     }
 
     func cancel() {
+        let hadWork = activeTask != nil || processingSongID != nil
         let old = activeTask
         activeTask = nil
         activeTaskKind = nil
         processingSongID = nil
         progressFraction = 0
         old?.cancel()
-        DebugLogger.log("Separation cancelled", category: .separation)
+        if hadWork {
+            DebugLogger.log("Separation cancelled", category: .separation)
+        }
     }
 
     func clearCache() {
         for directory in AudioCacheStore.cachedSongDirectories() {
-            let songID = directory.lastPathComponent
-            removeCachedStems(forSongID: songID)
+            AudioCacheStore.removeStemCache(in: directory)
         }
         DebugLogger.log("Stems cache cleared", category: .cache)
     }
 
     func cleanupRealtimeTemp() {
-        let dir = Self.realtimeTempDir
-        if let entries = try? FileManager.default.contentsOfDirectory(
-            at: dir, includingPropertiesForKeys: nil
-        ) {
-            for entry in entries {
-                try? FileManager.default.removeItem(at: entry)
+        let cutoff = Date()
+        realtimeCleanupTask?.cancel()
+        realtimeCleanupTask = Task.detached(priority: .utility) {
+            try? await Task.sleep(for: .milliseconds(200))
+            guard !Task.isCancelled else { return }
+            let removed = Self.removeRealtimeTempFiles(createdBefore: cutoff)
+            if removed > 0 {
+                DebugLogger.log(
+                    "Real-time temp files cleaned up: \(removed)",
+                    category: .separation
+                )
             }
         }
-        DebugLogger.log("Real-time temp files cleaned up", category: .separation)
+    }
+
+    private nonisolated static func removeRealtimeTempFiles(createdBefore cutoff: Date) -> Int {
+        let fm = FileManager.default
+        guard let entries = try? fm.contentsOfDirectory(
+            at: realtimeTempDir,
+            includingPropertiesForKeys: [.contentModificationDateKey],
+            options: [.skipsHiddenFiles]
+        ) else { return 0 }
+
+        var removed = 0
+        for entry in entries {
+            guard !Task.isCancelled,
+                  let values = try? entry.resourceValues(
+                      forKeys: [.contentModificationDateKey]
+                  ),
+                  let modifiedAt = values.contentModificationDate,
+                  modifiedAt < cutoff
+            else { continue }
+            do {
+                try fm.removeItem(at: entry)
+                removed += 1
+            } catch {
+                continue
+            }
+        }
+        return removed
     }
 
     private nonisolated static func expectedDuration(for sourceURL: URL) -> TimeInterval? {
@@ -426,8 +467,9 @@ final class VocalSeparator: ObservableObject {
     ) async throws {
         let separator = try AudioSeparator2(modelURL: modelURL)
         let tmpDir = FileManager.default.temporaryDirectory
-        let tmpVocals = tmpDir.appendingPathComponent("\(songID).vocals.wav")
-        let tmpInstruments = tmpDir.appendingPathComponent("\(songID).instruments.wav")
+        let storageKey = SongStorageKey.component(for: songID)
+        let tmpVocals = tmpDir.appendingPathComponent("\(storageKey).vocals.wav")
+        let tmpInstruments = tmpDir.appendingPathComponent("\(storageKey).instruments.wav")
         try? FileManager.default.removeItem(at: tmpVocals)
         try? FileManager.default.removeItem(at: tmpInstruments)
         let stems = Stems2(vocals: tmpVocals, accompaniment: tmpInstruments)

@@ -38,7 +38,7 @@ struct LyricsView: View {
         } else {
             ScrollViewReader { proxy in
                 ScrollView(showsIndicators: false) {
-                    VStack(alignment: .leading, spacing: 8) {
+                    LazyVStack(alignment: .leading, spacing: 8) {
                         Spacer().frame(height: 0)
                         if let first = lyrics.first {
                             IntroDots(isActive: isIntro, startTime: first.time, currentTime: currentTime)
@@ -60,12 +60,15 @@ struct LyricsView: View {
                                     onSeek(0)
                                 }
                         }
-                        ForEach(Array(lyrics.enumerated()), id: \.element.id) { index, line in
+                        ForEach(lyrics.indices, id: \.self) { index in
+                            let line = lyrics[index]
                             LyricLineRow(
                                 line: line,
                                 index: index,
                                 currentIndex: currentIndex,
-                                currentTime: currentTime,
+                                currentTime: line.isInstrumental && index == currentIndex
+                                    ? currentTime
+                                    : nil,
                                 showTranslation: showTranslations,
                                 nextLineTime: index + 1 < lyrics.count ? lyrics[index + 1].time : nil,
                                 onSeek: { time in
@@ -73,6 +76,7 @@ struct LyricsView: View {
                                     onSeek(time)
                                 }
                             )
+                            .equatable()
                             .id(line.id)
                         }
                         Spacer().frame(height: 120)
@@ -131,11 +135,11 @@ private struct InstrumentalDots: View {
     }
 }
 
-private struct LyricLineRow: View {
+private struct LyricLineRow: View, Equatable {
     let line: LyricLine
     let index: Int
     let currentIndex: Int
-    let currentTime: TimeInterval
+    let currentTime: TimeInterval?
     let showTranslation: Bool
     let nextLineTime: TimeInterval?
     let onSeek: (TimeInterval) -> Void
@@ -153,10 +157,23 @@ private struct LyricLineRow: View {
     }
 
     private var gapProgress: Double? {
-        guard let nextLineTime, nextLineTime > line.time else { return nil }
+        guard isCurrent,
+              let currentTime,
+              let nextLineTime,
+              nextLineTime > line.time
+        else { return nil }
         let elapsed = currentTime - line.time
         let total = nextLineTime - line.time
         return max(0, min(1, elapsed / total))
+    }
+
+    static func == (lhs: Self, rhs: Self) -> Bool {
+        lhs.line == rhs.line
+            && lhs.index == rhs.index
+            && lhs.currentIndex == rhs.currentIndex
+            && lhs.currentTime == rhs.currentTime
+            && lhs.showTranslation == rhs.showTranslation
+            && lhs.nextLineTime == rhs.nextLineTime
     }
 
     var body: some View {

@@ -10,6 +10,12 @@ nonisolated struct GenreSummary: Decodable, Identifiable {
     let name: String
     let songCount: Int
 
+    init(id: String, name: String, songCount: Int) {
+        self.id = id
+        self.name = name
+        self.songCount = songCount
+    }
+
     enum CodingKeys: String, CodingKey { case id, name, songCount, count }
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
@@ -174,24 +180,29 @@ final class GenresViewModel: ObservableObject {
     @Published var isLoading = false
     @Published var isLoadingMore = false
     @Published var canLoadMore = true
+    @Published private(set) var failedDetailIDs = Set<String>()
     private var page = 0
     private let pageSize = 50
     private var hasLoaded = false
     private var genreDetailOrder: [String] = []
     private let maxCachedGenreDetails = 30
     private var detailRequestsInFlight = Set<String>()
+    private var pendingDetailOrder: [String] = []
+    private var pendingDetails: [String: GenreSummary] = [:]
+    private var detailFailureDates: [String: Date] = [:]
+    private let maxConcurrentDetailRequests = 4
     private var genresNeedingFallback = Set<String>()
     private var fallbackCancellable: AnyCancellable?
+    private var memoryWarningCancellable: AnyCancellable?
 
     init() {
         #if canImport(UIKit)
-            NotificationCenter.default.addObserver(
-                forName: UIApplication.didReceiveMemoryWarningNotification,
-                object: nil, queue: .main
-            ) { [weak self] _ in
-                Task { @MainActor [weak self] in
-                    self?.clearCachedGenreDetails()
-                }
+            memoryWarningCancellable = NotificationCenter.default.publisher(
+                for: UIApplication.didReceiveMemoryWarningNotification
+            )
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                Task { @MainActor [weak self] in self?.clearCachedGenreDetails() }
             }
         #endif
         fallbackCancellable = FallbackArtProvider.shared.objectWillChange
@@ -209,6 +220,10 @@ final class GenresViewModel: ObservableObject {
 
     func loadIfNeeded() {
         guard !hasLoaded, !isLoading else { return }
+        if AppRuntime.isUITestMode {
+            applyUITestFixture()
+            return
+        }
         fetchPage(0, replace: true)
     }
 
@@ -225,6 +240,27 @@ final class GenresViewModel: ObservableObject {
         genreDetailOrder.removeAll()
     }
 
+    private func applyUITestFixture() {
+        let fixtureGenres = [
+            GenreSummary(id: "ui-genre-dance", name: "Dance", songCount: 3),
+            GenreSummary(id: "ui-genre-pop", name: "Pop", songCount: 3),
+            GenreSummary(id: "ui-genre-rock", name: "Rock", songCount: 3),
+        ]
+        let fixtureSongs = [
+            UITestFixtures.song(id: "ui-genre-song-1", title: "Wake Me Up Before You Go-Go", artist: "Wham!"),
+            UITestFixtures.song(id: "ui-genre-song-2", title: "Hero", artist: "Mili"),
+            UITestFixtures.song(id: "ui-genre-song-3", title: "Cure For Me", artist: "AURORA"),
+        ]
+
+        genres = fixtureGenres
+        allSongs = Dictionary(uniqueKeysWithValues: fixtureGenres.map { ($0.id, fixtureSongs) })
+        firstSongs = Dictionary(uniqueKeysWithValues: fixtureGenres.map { ($0.id, fixtureSongs[0]) })
+        hasLoaded = true
+        canLoadMore = false
+        isLoading = false
+        isLoadingMore = false
+    }
+
     private func fetchPage(_ page: Int, replace: Bool) {
         guard replace || (!isLoadingMore && canLoadMore) else { return }
         guard !isLoading else { return }
@@ -236,7 +272,8 @@ final class GenresViewModel: ObservableObject {
         else { return }
         if replace {
             isLoading = true
-            detailRequestsInFlight.removeAll()
+            pendingDetailOrder.removeAll()
+            pendingDetails.removeAll()
         } else {
             isLoadingMore = true
         }
@@ -270,20 +307,63 @@ final class GenresViewModel: ObservableObject {
         }
         canLoadMore = list.count == pageSize
         self.page = page + 1
-        for genre in filtered {
+    }
+
+    func loadPreviewIfNeeded(for genre: GenreSummary) {
+        guard artworkURLs[genre.id] == nil else { return }
+        enqueueDetail(for: genre, priority: false)
+    }
+
+    func loadDetailIfNeeded(for genre: GenreSummary) {
+        guard allSongs[genre.id] == nil else { return }
+        failedDetailIDs.remove(genre.id)
+        enqueueDetail(for: genre, priority: true)
+    }
+
+    private func enqueueDetail(for genre: GenreSummary, priority: Bool) {
+        guard allSongs[genre.id] == nil, !detailRequestsInFlight.contains(genre.id) else { return }
+        if !priority,
+           let failedAt = detailFailureDates[genre.id],
+           Date().timeIntervalSince(failedAt) < 30
+        {
+            return
+        }
+        if pendingDetails[genre.id] != nil {
+            if priority {
+                pendingDetailOrder.removeAll { $0 == genre.id }
+                pendingDetailOrder.insert(genre.id, at: 0)
+            }
+            return
+        }
+        pendingDetails[genre.id] = genre
+        if priority {
+            pendingDetailOrder.insert(genre.id, at: 0)
+        } else {
+            pendingDetailOrder.append(genre.id)
+        }
+        startQueuedDetailRequests()
+    }
+
+    private func startQueuedDetailRequests() {
+        while detailRequestsInFlight.count < maxConcurrentDetailRequests,
+              let genreID = pendingDetailOrder.first
+        {
+            pendingDetailOrder.removeFirst()
+            guard let genre = pendingDetails.removeValue(forKey: genreID),
+                  detailRequestsInFlight.insert(genreID).inserted
+            else { continue }
             fetchDetail(for: genre)
         }
     }
 
     private func fetchDetail(for genre: GenreSummary) {
-        if allSongs[genre.id] != nil { return }
-        guard detailRequestsInFlight.insert(genre.id).inserted else { return }
-        guard let url = URL(string: "\(StorageHost.api)/api/genres/\(genre.id)") else {
+        guard let request = try? KaraokeAPIClient.request(
+            pathSegments: ["api", "genres", genre.id]
+        ) else {
             detailRequestsInFlight.remove(genre.id)
+            startQueuedDetailRequests()
             return
         }
-        var request = URLRequest(url: url)
-        GuestIdentity.applyIfNeeded(to: &request)
         URLSession.shared.dataTask(with: request) { [weak self] data, _, _ in
             Task { @MainActor [weak self, data, genre] in
                 self?.applyGenreDetailResponse(data, for: genre)
@@ -292,14 +372,21 @@ final class GenresViewModel: ObservableObject {
     }
 
     private func applyGenreDetailResponse(_ data: Data?, for genre: GenreSummary) {
-        defer { detailRequestsInFlight.remove(genre.id) }
+        defer {
+            detailRequestsInFlight.remove(genre.id)
+            startQueuedDetailRequests()
+        }
         guard let data,
               let detail = try? JSONDecoder().decode(GenreDetail.self, from: data),
               let songs = detail.songs
         else {
+            detailFailureDates[genre.id] = Date()
+            failedDetailIDs.insert(genre.id)
             return
         }
 
+        detailFailureDates.removeValue(forKey: genre.id)
+        failedDetailIDs.remove(genre.id)
         allSongs[genre.id] = songs
         if let first = songs.first {
             firstSongs[genre.id] = first
@@ -391,6 +478,7 @@ final class SearchViewModel: ObservableObject {
     @Published var searchErrorMessage: String?
     private var cancellables = Set<AnyCancellable>()
     private var queryToken: Int = 0
+    private var searchTask: Task<Void, Never>?
 
     init() {
         $searchText
@@ -414,28 +502,37 @@ final class SearchViewModel: ObservableObject {
             clearSearch()
             return
         }
+        searchTask?.cancel()
         queryToken += 1
         let token = queryToken
         results = []
         isSearching = true
         searchErrorMessage = nil
 
-        Task { [weak self] in
+        searchTask = Task { [weak self] in
             guard let self else { return }
             do {
                 let songs = try await KaraokeAPIClient.searchSongs(query: trimmedQuery, pageSize: 30)
+                guard !Task.isCancelled else { return }
                 applySearchResponse(songs, token: token)
+            } catch is CancellationError {
+                return
             } catch KaraokeAPIClient.APIError.httpStatus(_) {
+                guard !Task.isCancelled else { return }
                 applySearchFailure("Search returned an unexpected response. Try again.", token: token)
             } catch KaraokeAPIClient.APIError.decodeFailed {
+                guard !Task.isCancelled else { return }
                 applySearchFailure("Search results couldn't be read. Try again.", token: token)
             } catch {
+                guard !Task.isCancelled else { return }
                 applySearchFailure("Check your connection and try again.", token: token)
             }
         }
     }
 
     private func clearSearch() {
+        searchTask?.cancel()
+        searchTask = nil
         queryToken += 1
         results = []
         isSearching = false
@@ -444,6 +541,7 @@ final class SearchViewModel: ObservableObject {
 
     private func applySearchResponse(_ loadedSongs: [Song], token: Int) {
         guard queryToken == token else { return }
+        searchTask = nil
         results = loadedSongs
         searchErrorMessage = nil
         isSearching = false
@@ -451,8 +549,13 @@ final class SearchViewModel: ObservableObject {
 
     private func applySearchFailure(_ message: String, token: Int) {
         guard queryToken == token else { return }
+        searchTask = nil
         results = []
         searchErrorMessage = message
         isSearching = false
+    }
+
+    deinit {
+        searchTask?.cancel()
     }
 }

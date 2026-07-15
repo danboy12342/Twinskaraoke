@@ -46,6 +46,10 @@ struct NewView: View {
             .onAppear {
                 prefetchVisibleArtwork()
             }
+            .onDisappear {
+                ArtworkPrefetcher.shared.cancel(reason: "new songs")
+                ArtworkPrefetcher.shared.cancel(reason: "new playlists")
+            }
         }
     }
 
@@ -92,7 +96,7 @@ struct NewView: View {
             }
 
             if !viewModel.trending.isEmpty {
-                NewSongRail(title: "Trending Songs", songs: viewModel.trending)
+                NewSongRail(title: "More to Explore", songs: viewModel.trending)
             }
         }
     }
@@ -133,7 +137,7 @@ struct NewView: View {
                     }
 
                     if !viewModel.trending.isEmpty {
-                        NewSongRail(title: "Trending Songs", songs: viewModel.trending)
+                        NewSongRail(title: "More to Explore", songs: viewModel.trending)
                     }
                 }
                 .frame(minWidth: 520, maxWidth: .infinity, alignment: .topLeading)

@@ -135,15 +135,18 @@ struct ContentView: View {
 private struct PopupHostView: View {
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @Environment(\.appReduceMotion) private var reduceMotion
-    @State private var selectedSection: RootSection? = .home
+    @State private var selectedSection: RootSection?
     @State private var showCaptcha = false
+
+    init() {
+        _selectedSection = State(initialValue: Self.initialSection)
+    }
     
     var body: some View {
         rootShell
             .modifier(PopupModifier())
             .onAppear {
                 configureTabBarAppearance()
-                applyUITestInitialSectionIfNeeded()
                 if DeveloperMode.shouldTriggerEasterEgg() {
                     showCaptcha = true
                 }
@@ -277,15 +280,15 @@ private struct PopupHostView: View {
         #endif
     }
 
-    private func applyUITestInitialSectionIfNeeded() {
+    private static var initialSection: RootSection {
         let arguments = ProcessInfo.processInfo.arguments
         guard let flagIndex = arguments.firstIndex(of: "-UITestInitialSection"),
               arguments.indices.contains(flagIndex + 1),
               let section = RootSection(rawValue: arguments[flagIndex + 1].lowercased())
         else {
-            return
+            return .home
         }
-        selectedSection = section
+        return section
     }
 }
 

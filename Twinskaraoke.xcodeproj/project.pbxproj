@@ -430,7 +430,7 @@
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				93D8E68A2F9B5FA60090FBFA /* XCRemoteSwiftPackageReference "SDWebImageSwiftUI" */,
-				D094F1182FA8A0A5006B427D /* XCRemoteSwiftPackageReference "LNPopupUI" */,
+				D094F1182FA8A0A5006B427D /* XCLocalSwiftPackageReference "Vendor/LNPopupUI" */,
 				D0C385962FB0BD870055284E /* XCRemoteSwiftPackageReference "swift-spleeter" */,
 			);
 			preferredProjectObjectVersion = 77;
@@ -1132,14 +1132,6 @@
 				minimumVersion = 3.1.4;
 			};
 		};
-		D094F1182FA8A0A5006B427D /* XCRemoteSwiftPackageReference "LNPopupUI" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/LeoNatan/LNPopupUI";
-			requirement = {
-				kind = upToNextMajorVersion;
-				minimumVersion = 3.0.2;
-			};
-		};
 		D0C385962FB0BD870055284E /* XCRemoteSwiftPackageReference "swift-spleeter" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/jiyimeta/swift-spleeter";
@@ -1149,6 +1141,13 @@
 			};
 		};
 /* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		D094F1182FA8A0A5006B427D /* XCLocalSwiftPackageReference "Vendor/LNPopupUI" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Vendor/LNPopupUI;
+		};
+/* End XCLocalSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
 		93D8E68B2F9B5FA60090FBFA /* SDWebImageSwiftUI */ = {
@@ -1163,7 +1162,7 @@
 		};
 		D0DB31F72FA8A3F80089C24C /* LNPopupUI */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = D094F1182FA8A0A5006B427D /* XCRemoteSwiftPackageReference "LNPopupUI" */;
+			package = D094F1182FA8A0A5006B427D /* XCLocalSwiftPackageReference "Vendor/LNPopupUI" */;
 			productName = LNPopupUI;
 		};
 /* End XCSwiftPackageProductDependency section */
