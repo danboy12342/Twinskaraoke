@@ -1413,6 +1413,7 @@ class AudioPlayerManager: ObservableObject {
         stopStreamPlayer()
         avEngine.stop()
         aiStemSwitchInFlightSongID = nil
+        separationGeneration &+= 1
         VocalSeparator.shared.cancel()
         VocalSeparator.shared.cancelBackgroundAnalysis()
         VocalSeparator.shared.cleanupRealtimeTemp()

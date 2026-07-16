@@ -164,7 +164,7 @@ final class AuthManager: NSObject, ObservableObject, ASWebAuthenticationPresenta
                         self?.webAuthenticationSession = nil
                     }
                     if let error {
-                        cont.resume(throwing: error)
+                        cont.resume(throwing: Self.mappedWebAuthenticationError(error))
                         return
                     }
                     guard let url else {
@@ -242,15 +242,43 @@ final class AuthManager: NSObject, ObservableObject, ASWebAuthenticationPresenta
     nonisolated static func exchangedToken(from data: Data) -> String? {
         let raw = String(data: data, encoding: .utf8)?
             .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        let token: String?
-        if raw.hasPrefix("{"),
-           let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
-        {
-            token = json["token"] as? String ?? json["accessToken"] as? String
-        } else {
-            token = raw.trimmingCharacters(in: CharacterSet(charactersIn: "\""))
+        guard !raw.isEmpty else { return nil }
+
+        if let json = try? JSONSerialization.jsonObject(with: data, options: [.fragmentsAllowed]) {
+            if let object = json as? [String: Any] {
+                return validatedExchangedToken(
+                    object["token"] as? String ?? object["accessToken"] as? String
+                )
+            }
+            if let string = json as? String {
+                return validatedExchangedToken(string)
+            }
+            return nil
         }
-        guard let token, !token.isEmpty else { return nil }
+        return validatedExchangedToken(raw)
+    }
+
+    nonisolated static func mappedWebAuthenticationError(_ error: Error) -> Error {
+        let nsError = error as NSError
+        if nsError.domain == ASWebAuthenticationSessionErrorDomain,
+           nsError.code == ASWebAuthenticationSessionError.Code.canceledLogin.rawValue
+        {
+            return AuthError.cancelled
+        }
+        return error
+    }
+
+    private nonisolated static func validatedExchangedToken(_ candidate: String?) -> String? {
+        guard let token = candidate?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !token.isEmpty,
+              token.utf8.count <= 8_192
+        else {
+            return nil
+        }
+        let allowed = CharacterSet.alphanumerics.union(
+            CharacterSet(charactersIn: "-._~+/=")
+        )
+        guard token.unicodeScalars.allSatisfy({ allowed.contains($0) }) else { return nil }
         return token
     }
 

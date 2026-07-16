@@ -12,6 +12,7 @@ nonisolated enum SongStorageKey {
        songID != ".",
        songID != "..",
        !songID.hasPrefix(hashPrefix),
+       songID.utf8.count <= 200,
        songID.unicodeScalars.allSatisfy({ allowed.contains($0) })
     {
       return songID

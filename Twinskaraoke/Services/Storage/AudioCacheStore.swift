@@ -93,6 +93,20 @@ nonisolated enum AudioCacheStore {
               validateMainSource(for: songID, expectedRemoteURL: expectedRemoteURL),
               isValidAudioFile(at: songFiles.main)
         else { return nil }
+        if let expectedDuration, expectedDuration.isFinite, expectedDuration > 1.0 {
+            let actualDuration = audioDuration(at: songFiles.main)
+            guard durationAppearsComplete(
+                actualDuration: actualDuration,
+                expectedDuration: expectedDuration
+            ) else {
+                DebugLogger.log(
+                    "Discarding immediate audio cache for \(songID) due to duration mismatch: expected \(expectedDuration)s, got \(actualDuration)s",
+                    category: .cache
+                )
+                removeSongCache(for: songID)
+                return nil
+            }
+        }
         touch(songFiles.main)
         return songFiles.main
     }

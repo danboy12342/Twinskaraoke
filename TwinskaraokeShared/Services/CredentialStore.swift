@@ -17,8 +17,6 @@ nonisolated enum CredentialStore {
 
   static var token: String? {
     if UserDefaults.standard.object(forKey: sessionCommittedKey) as? Bool == false {
-      SecItemDelete(baseQuery as CFDictionary)
-      UserDefaults.standard.removeObject(forKey: legacyTokenKey)
       return nil
     }
     if let stored = readTokenFromKeychain() {
@@ -29,10 +27,13 @@ nonisolated enum CredentialStore {
       return nil
     }
 
-    if (try? saveToken(legacy)) != nil {
+    do {
+      try saveToken(legacy)
+      return legacy
+    } catch {
       UserDefaults.standard.removeObject(forKey: legacyTokenKey)
+      return nil
     }
-    return legacy
   }
 
   static var isAuthenticated: Bool {

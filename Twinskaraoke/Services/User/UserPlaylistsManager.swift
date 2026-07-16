@@ -10,13 +10,19 @@ final class UserPlaylistsManager: ObservableObject {
 
     private var loaded = false
     private var stateGeneration = 0
+    private var forcedReloadPending = false
 
     func loadIfNeeded() {
         fetchPlaylists(force: false)
     }
 
     func fetchPlaylists(force: Bool = true) {
-        guard !isLoading else { return }
+        guard !isLoading else {
+            if force {
+                forcedReloadPending = true
+            }
+            return
+        }
         guard force || !loaded else { return }
         guard CredentialStore.isAuthenticated else {
             playlists = []
@@ -31,6 +37,10 @@ final class UserPlaylistsManager: ObservableObject {
             defer {
                 if self.stateGeneration == generation {
                     self.isLoading = false
+                    if self.forcedReloadPending {
+                        self.forcedReloadPending = false
+                        self.fetchPlaylists(force: true)
+                    }
                 }
             }
 
@@ -108,5 +118,6 @@ final class UserPlaylistsManager: ObservableObject {
         playlists = []
         loaded = false
         isLoading = false
+        forcedReloadPending = false
     }
 }

@@ -502,7 +502,10 @@ class AudioManager: ObservableObject {
     private func validateCacheAndPlay(song: Song, cacheURL: URL) {
         let songID = song.id
         validateCachedFile(at: cacheURL, expectedDuration: song.duration) { [weak self] valid in
-            guard let self, currentSong?.id == songID, playbackRequested else { return }
+            guard let self,
+                  currentSong?.id == songID,
+                  playbackRequested || isLoading
+            else { return }
             if valid {
                 setupPlayer(with: cacheURL)
                 return

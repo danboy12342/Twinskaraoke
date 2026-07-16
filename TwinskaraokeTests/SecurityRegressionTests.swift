@@ -1,3 +1,4 @@
+import AuthenticationServices
 import Foundation
 import Testing
 @testable import Twinskaraoke
@@ -31,6 +32,15 @@ struct SecurityRegressionTests {
         #expect(first != SongStorageKey.component(for: first))
     }
 
+    @Test("Oversized song IDs are hashed below filesystem limits")
+    func oversizedSongStorageKeysAreHashed() {
+        let longID = String(repeating: "a", count: 201)
+        let component = SongStorageKey.component(for: longID)
+
+        #expect(component.hasPrefix("__nksha256_"))
+        #expect(component.utf8.count < longID.utf8.count)
+    }
+
     @Test("Cache maintenance exclusions use on-disk storage keys")
     func cacheMaintenanceUsesStorageKeys() {
         let unsafeID = "artist/song"
@@ -57,6 +67,10 @@ struct SecurityRegressionTests {
         #expect(AuthManager.exchangedToken(from: Data()) == nil)
         #expect(AuthManager.exchangedToken(from: Data("{}".utf8)) == nil)
         #expect(AuthManager.exchangedToken(from: Data(#"{"token":""}"#.utf8)) == nil)
+        #expect(AuthManager.exchangedToken(from: Data("null".utf8)) == nil)
+        #expect(AuthManager.exchangedToken(from: Data("[]".utf8)) == nil)
+        #expect(AuthManager.exchangedToken(from: Data("42".utf8)) == nil)
+        #expect(AuthManager.exchangedToken(from: Data("<html>error</html>".utf8)) == nil)
     }
 
     @Test("API path segments are encoded exactly once")
@@ -67,6 +81,49 @@ struct SecurityRegressionTests {
 
         #expect(request.url?.absoluteString.contains("/api/songs/a%20b%2Fc%25%3F/lyrics") == true)
         #expect(request.url?.absoluteString.contains("%2520") == false)
+    }
+
+    @Test("API path segments reject navigation components")
+    func apiPathSegmentsRejectNavigation() {
+        #expect(throws: KaraokeAPIClient.APIError.self) {
+            try KaraokeAPIClient.request(pathSegments: ["api", ".", "songs"])
+        }
+        #expect(throws: KaraokeAPIClient.APIError.self) {
+            try KaraokeAPIClient.request(pathSegments: ["api", "..", "songs"])
+        }
+    }
+
+    @Test("Translation credentials are limited to first-party HTTPS origins")
+    func translationCredentialOriginsAreAllowlisted() throws {
+        let primary = try #require(URL(string: "https://api.neurokaraoke.com/api/translate"))
+        let china = try #require(URL(string: "https://api.neurokaraoke.com.cn/api/translate"))
+        let thirdParty = try #require(URL(string: "https://example.com/translate"))
+        let lookalike = try #require(URL(string: "https://api.neurokaraoke.com.example.com/translate"))
+        let insecure = try #require(URL(string: "http://api.neurokaraoke.com/api/translate"))
+
+        #expect(LyricsTranslationService.isFirstPartyEndpoint(primary))
+        #expect(LyricsTranslationService.isFirstPartyEndpoint(china))
+        #expect(!LyricsTranslationService.isFirstPartyEndpoint(thirdParty))
+        #expect(!LyricsTranslationService.isFirstPartyEndpoint(lookalike))
+        #expect(!LyricsTranslationService.isFirstPartyEndpoint(insecure))
+    }
+
+    @Test("Web authentication cancellation maps to a silent cancellation")
+    func webAuthenticationCancellationIsMapped() {
+        let error = NSError(
+            domain: ASWebAuthenticationSessionErrorDomain,
+            code: ASWebAuthenticationSessionError.Code.canceledLogin.rawValue
+        )
+        let mapped = AuthManager.mappedWebAuthenticationError(error)
+
+        guard let authError = mapped as? AuthManager.AuthError else {
+            Issue.record("Expected AuthError.cancelled")
+            return
+        }
+        guard case .cancelled = authError else {
+            Issue.record("Expected AuthError.cancelled")
+            return
+        }
     }
 
     @Test("Only complete credential commits restore a session")

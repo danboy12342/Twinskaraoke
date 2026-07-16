@@ -189,6 +189,8 @@ final class GenresViewModel: ObservableObject {
     private var detailRequestsInFlight = Set<String>()
     private var pendingDetailOrder: [String] = []
     private var pendingDetails: [String: GenreSummary] = [:]
+    private var detailTasks: [String: URLSessionDataTask] = [:]
+    private var detailGeneration: UInt64 = 0
     private var detailFailureDates: [String: Date] = [:]
     private let maxConcurrentDetailRequests = 4
     private var genresNeedingFallback = Set<String>()
@@ -235,6 +237,12 @@ final class GenresViewModel: ObservableObject {
     }
 
     private func clearCachedGenreDetails() {
+        detailGeneration &+= 1
+        detailTasks.values.forEach { $0.cancel() }
+        detailTasks.removeAll()
+        detailRequestsInFlight.removeAll()
+        pendingDetailOrder.removeAll()
+        pendingDetails.removeAll()
         allSongs.removeAll()
         firstSongs.removeAll()
         genreDetailOrder.removeAll()
@@ -357,6 +365,7 @@ final class GenresViewModel: ObservableObject {
     }
 
     private func fetchDetail(for genre: GenreSummary) {
+        let generation = detailGeneration
         guard let request = try? KaraokeAPIClient.request(
             pathSegments: ["api", "genres", genre.id]
         ) else {
@@ -364,15 +373,23 @@ final class GenresViewModel: ObservableObject {
             startQueuedDetailRequests()
             return
         }
-        URLSession.shared.dataTask(with: request) { [weak self] data, _, _ in
-            Task { @MainActor [weak self, data, genre] in
-                self?.applyGenreDetailResponse(data, for: genre)
+        let task = URLSession.shared.dataTask(with: request) { [weak self] data, _, _ in
+            Task { @MainActor [weak self, data, genre, generation] in
+                self?.applyGenreDetailResponse(data, for: genre, generation: generation)
             }
-        }.resume()
+        }
+        detailTasks[genre.id] = task
+        task.resume()
     }
 
-    private func applyGenreDetailResponse(_ data: Data?, for genre: GenreSummary) {
+    private func applyGenreDetailResponse(
+        _ data: Data?,
+        for genre: GenreSummary,
+        generation: UInt64
+    ) {
+        guard generation == detailGeneration else { return }
         defer {
+            detailTasks.removeValue(forKey: genre.id)
             detailRequestsInFlight.remove(genre.id)
             startQueuedDetailRequests()
         }

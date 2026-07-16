@@ -301,6 +301,8 @@ nonisolated enum KaraokeAPIClient {
     }
     let encodedSegments = try pathSegments.map { segment -> String in
       guard !segment.isEmpty,
+            segment != ".",
+            segment != "..",
             let encoded = segment.addingPercentEncoding(withAllowedCharacters: pathSegmentAllowed)
       else {
         throw APIError.invalidURL

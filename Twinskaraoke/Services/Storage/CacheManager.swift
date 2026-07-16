@@ -127,10 +127,7 @@ final class CacheManager: ObservableObject {
 
     func clearImageCache() {
         SDImageCache.shared.clearMemory()
-        let dir = Self.imageCacheDirectory
-        Self.maintenanceQueue.async { [weak self] in
-            guard let self else { return }
-            removeAllFiles(in: dir)
+        SDImageCache.shared.clearDisk { [weak self] in
             Task { @MainActor [weak self] in
                 guard let self else { return }
                 FallbackArtProvider.shared.resetBindings()

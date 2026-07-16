@@ -650,7 +650,9 @@ final class DownloadManager: ObservableObject {
         {
             validDownloadCache[songID] = entry
         }
-        for (songID, song) in scan.metadata where stillExistingIDs.contains(songID) {
+        for (songID, song) in scan.metadata
+            where stillExistingIDs.contains(songID) && downloadedMetadata[songID] == nil
+        {
             downloadedMetadata[songID] = song
         }
         updatePublishedState { $0.downloadedIDs.formUnion(stillExistingIDs) }
