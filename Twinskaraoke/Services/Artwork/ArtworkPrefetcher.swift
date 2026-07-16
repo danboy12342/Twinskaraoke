@@ -4,10 +4,19 @@ import SDWebImageSwiftUI
 
 @MainActor
 final class ArtworkPrefetcher {
+    private struct ActivePrefetch {
+        let id: UUID
+        let token: SDWebImagePrefetchToken
+        let requestedKeys: Set<String>
+        let selectedKeys: Set<String>
+        let limit: Int
+    }
+
     static let shared = ArtworkPrefetcher()
 
     private let prefetcher = SDWebImagePrefetcher.shared
     private var recentlyRequested: [String: Date] = [:]
+    private var activePrefetches: [String: ActivePrefetch] = [:]
     private let reuseWindow: TimeInterval = 45
 
     private init() {
@@ -65,7 +74,17 @@ final class ArtworkPrefetcher {
         let variantURLs = urls.map { url in
             ArtworkURLBuilder.variantURL(from: url, variant: variant) ?? url
         }
-        let selected = freshUniqueURLs(from: variantURLs, limit: adjustedLimit(limit, reason: reason))
+        let effectiveLimit = adjustedLimit(limit, reason: reason)
+        let requestedKeys = Set(variantURLs.map(\.absoluteString))
+        if let active = activePrefetches[reason],
+           active.requestedKeys == requestedKeys,
+           active.limit == effectiveLimit
+        {
+            return
+        }
+
+        cancel(reason: reason)
+        let selected = freshUniqueURLs(from: variantURLs, limit: effectiveLimit)
         guard !selected.isEmpty else { return }
 
         DebugLogger.log(
@@ -73,16 +92,38 @@ final class ArtworkPrefetcher {
             category: .cache
         )
 
-        prefetcher.prefetchURLs(
+        let requestID = UUID()
+        let token = prefetcher.prefetchURLs(
             selected,
             options: [],
             context: ImageCacheConfig.prefetchContext,
             progress: nil
-        ) { finished, skipped in
+        ) { [weak self] finished, skipped in
             DebugLogger.log(
                 "Artwork prefetch complete for \(reason): finished=\(finished), skipped=\(skipped)",
                 category: .cache
             )
+            Task { @MainActor [weak self] in
+                guard self?.activePrefetches[reason]?.id == requestID else { return }
+                self?.activePrefetches.removeValue(forKey: reason)
+            }
+        }
+        if let token {
+            activePrefetches[reason] = ActivePrefetch(
+                id: requestID,
+                token: token,
+                requestedKeys: requestedKeys,
+                selectedKeys: Set(selected.map(\.absoluteString)),
+                limit: effectiveLimit
+            )
+        }
+    }
+
+    func cancel(reason: String) {
+        guard let active = activePrefetches.removeValue(forKey: reason) else { return }
+        active.token.cancel()
+        for key in active.selectedKeys {
+            recentlyRequested.removeValue(forKey: key)
         }
     }
 

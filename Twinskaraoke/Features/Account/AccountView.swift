@@ -142,6 +142,11 @@ struct AccountView: View {
                 Label("Settings", systemImage: "gearshape")
             }
             NavigationLink {
+                NotificationsView()
+            } label: {
+                Label("Notifications", systemImage: "bell")
+            }
+            NavigationLink {
                 AboutView()
             } label: {
                 Label("About", systemImage: "info.circle")

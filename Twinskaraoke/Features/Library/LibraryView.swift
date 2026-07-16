@@ -245,7 +245,7 @@ private struct LibraryToolbarActions: View {
     let onRefresh: () -> Void
 
     var body: some View {
-        ToolbarCapsuleMenu(accessibilityLabel: "Library Actions") {
+        ToolbarCapsuleMenu(accessibilityLabel: "More Library Actions") {
             Button(action: onCreatePlaylist) {
                 Label("New Playlist", systemImage: "text.badge.plus")
             }
@@ -455,6 +455,9 @@ struct LibrarySongsView: View {
                 variant: .row
             )
         }
+        .onDisappear {
+            ArtworkPrefetcher.shared.cancel(reason: "library visible songs")
+        }
         .animation(listAnimation, value: songs.map(\.id))
         .animation(listAnimation, value: viewModel.sort)
     }
@@ -598,7 +601,7 @@ struct PlaylistsGridScreen: View {
 
 
     private var isLoggedIn: Bool {
-        UserDefaults.standard.string(forKey: "nk.token") != nil
+        CredentialStore.isAuthenticated
     }
 
     private var combinedPlaylists: [Playlist] {

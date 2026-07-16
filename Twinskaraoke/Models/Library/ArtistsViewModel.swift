@@ -76,10 +76,14 @@ final class ArtistDetailViewModel: ObservableObject {
         loadedID = id
         hasLoadedDetail = false
         errorMessage = nil
-        guard let url = URL(string: "\(StorageHost.api)/api/artist/\(id)") else { return }
+        guard let request = try? KaraokeAPIClient.request(
+            pathSegments: ["api", "artist", id]
+        ) else {
+            isLoading = false
+            errorMessage = "The artist could not be loaded right now."
+            return
+        }
         isLoading = true
-        var request = URLRequest(url: url)
-        GuestIdentity.applyIfNeeded(to: &request)
         URLSession.shared.dataTask(with: request) { [weak self] data, _, _ in
             Task { @MainActor [weak self, data, id] in
                 self?.applyArtistDetailResponse(data, id: id)

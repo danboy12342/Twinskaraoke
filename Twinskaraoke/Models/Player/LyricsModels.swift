@@ -1,6 +1,6 @@
 import Foundation
 
-nonisolated struct LyricLine: Identifiable, Codable {
+nonisolated struct LyricLine: Identifiable, Codable, Equatable {
     let id = UUID()
     let time: TimeInterval
     let text: String

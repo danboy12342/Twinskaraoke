@@ -10,6 +10,9 @@ final class FavoritesManager: ObservableObject {
     private var loaded = false
     private var isLoading = false
     private var lastLoadFailure: Date?
+    private var stateGeneration = 0
+    private var mutationRevision = 0
+    private var reloadAfterMutations = false
     private let loadFailureRetryDelay: TimeInterval = 30
 
     func isFavorite(_ songID: String) -> Bool {
@@ -30,9 +33,14 @@ final class FavoritesManager: ObservableObject {
     }
 
     func clear() {
+        stateGeneration += 1
         favoriteIDs = []
+        inFlight = []
         loaded = false
+        isLoading = false
         lastLoadFailure = nil
+        mutationRevision = 0
+        reloadAfterMutations = false
     }
 
     func toggle(songID: String) {
@@ -44,9 +52,15 @@ final class FavoritesManager: ObservableObject {
             favoriteIDs.insert(songID)
         }
         inFlight.insert(songID)
+        mutationRevision &+= 1
+        if isLoading {
+            reloadAfterMutations = true
+        }
+        let generation = stateGeneration
         Task {
             let ok = await send(songID: songID)
             await MainActor.run {
+                guard stateGeneration == generation else { return }
                 inFlight.remove(songID)
                 if !ok {
                     if wasFavorite {
@@ -55,18 +69,33 @@ final class FavoritesManager: ObservableObject {
                         favoriteIDs.remove(songID)
                     }
                 }
+                scheduleReloadAfterMutationsIfNeeded()
             }
         }
     }
 
     private func load() async {
-        guard UserDefaults.standard.string(forKey: "nk.token") != nil else { return }
+        guard CredentialStore.isAuthenticated else { return }
+        let generation = stateGeneration
+        let revision = mutationRevision
         isLoading = true
-        defer { isLoading = false }
+        defer {
+            if stateGeneration == generation {
+                isLoading = false
+                scheduleReloadAfterMutationsIfNeeded()
+            }
+        }
         guard let req = try? KaraokeAPIClient.request(path: "/api/user/favorites"),
               let data = try? await KaraokeAPIClient.data(for: req)
         else {
-            lastLoadFailure = Date()
+            if stateGeneration == generation {
+                lastLoadFailure = Date()
+            }
+            return
+        }
+        guard stateGeneration == generation else { return }
+        guard mutationRevision == revision, inFlight.isEmpty else {
+            reloadAfterMutations = true
             return
         }
         let ids = Self.parseIDs(from: data)
@@ -75,9 +104,18 @@ final class FavoritesManager: ObservableObject {
         lastLoadFailure = nil
     }
 
+    private func scheduleReloadAfterMutationsIfNeeded() {
+        guard reloadAfterMutations, inFlight.isEmpty, !isLoading else { return }
+        reloadAfterMutations = false
+        Task { @MainActor [weak self] in
+            await self?.load()
+        }
+    }
+
     private func send(songID: String) async -> Bool {
-        let encoded = songID.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? songID
-        guard var req = try? KaraokeAPIClient.request(path: "/api/user/favorites/\(encoded)")
+        guard var req = try? KaraokeAPIClient.request(
+            pathSegments: ["api", "user", "favorites", songID]
+        )
         else { return false }
         req.httpMethod = "PUT"
         return (try? await KaraokeAPIClient.data(for: req)) != nil

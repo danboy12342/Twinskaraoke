@@ -2,7 +2,6 @@ import Foundation
 
 nonisolated enum GuestIdentity {
   private static let storageKey = "nk.guestId"
-  private static let tokenKey = "nk.token"
 
   static let current: String = {
     let defaults = UserDefaults.standard
@@ -15,8 +14,7 @@ nonisolated enum GuestIdentity {
   }()
 
   static var isAuthenticated: Bool {
-    let token = UserDefaults.standard.string(forKey: tokenKey)
-    return !(token?.isEmpty ?? true)
+    CredentialStore.isAuthenticated
   }
 
   static func applyIfNeeded(to request: inout URLRequest) {

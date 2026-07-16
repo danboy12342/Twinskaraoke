@@ -498,18 +498,14 @@ private struct ArtistActionsMenu: View {
             } else if allDownloaded {
                 Button(role: .destructive) {
                     AppHaptic.warning.play()
-                    for song in songs {
-                        DownloadManager.shared.remove(songID: song.id)
-                    }
+                    DownloadManager.shared.remove(songIDs: songs.map(\.id))
                 } label: {
                     Label("Remove Downloads", systemImage: "trash")
                 }
             } else {
                 Button {
                     AppHaptic.success.play()
-                    for song in pendingDownloads {
-                        DownloadManager.shared.download(song: song)
-                    }
+                    DownloadManager.shared.download(songs: pendingDownloads)
                 } label: {
                     Label(downloadTitle, systemImage: "arrow.down.circle")
                 }

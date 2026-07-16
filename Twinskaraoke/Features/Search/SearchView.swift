@@ -123,6 +123,7 @@ struct SearchView: View {
                 playbackTask?.cancel()
                 playbackTask = nil
                 pendingSongID = nil
+                ArtworkPrefetcher.shared.cancel(reason: "search results")
             }
         }
     }
@@ -442,7 +443,10 @@ private struct BrowseCategoriesView: View {
                     .accessibilityIdentifier("SearchCategory.\(genre.name.accessibilitySlug)")
                     .accessibilityValue("\(genre.songCount) songs")
                     .accessibilityHint("Opens \(genre.name) songs")
-                    .onAppear { genresVM.loadMoreIfNeeded(current: genre) }
+                    .onAppear {
+                        genresVM.loadMoreIfNeeded(current: genre)
+                        genresVM.loadPreviewIfNeeded(for: genre)
+                    }
                 }
             }
             .transition(.opacity.combined(with: .move(edge: .bottom)))
@@ -495,56 +499,24 @@ struct GenreDetailView: View {
     let genre: GenreSummary
     @ObservedObject var viewModel: GenresViewModel
     let palette: [Color]
-    @State private var isLoadingDetail = false
 
     var body: some View {
-        let songs = viewModel.allSongs[genre.id] ?? []
+        let loadedSongs = viewModel.allSongs[genre.id]
         Group {
-            if isLoadingDetail, songs.isEmpty {
+            if loadedSongs == nil, !viewModel.failedDetailIDs.contains(genre.id) {
                 GenreDetailLoadingView(genre: genre)
                     .transition(.opacity)
             } else {
                 BrowseSongCollectionView(
                     title: genre.name,
-                    songs: songs
+                    songs: loadedSongs ?? []
                 )
                 .transition(.opacity)
             }
         }
         .task {
-            await loadGenreDetail()
+            viewModel.loadDetailIfNeeded(for: genre)
         }
-    }
-
-    private func loadGenreDetail() async {
-        guard viewModel.allSongs[genre.id] == nil else { return }
-        isLoadingDetail = true
-        defer { isLoadingDetail = false }
-
-        guard let url = URL(string: "\(StorageHost.api)/api/genres/\(genre.id)") else {
-            return
-        }
-
-        var request = URLRequest(url: url)
-        GuestIdentity.applyIfNeeded(to: &request)
-
-        do {
-            let (data, _) = try await URLSession.shared.data(for: request)
-            if let detail = try? JSONDecoder().decode(GenreDetail.self, from: data),
-               let songs = detail.songs
-            {
-                await MainActor.run {
-                    viewModel.allSongs[genre.id] = songs
-                    if let first = songs.first {
-                        viewModel.firstSongs[genre.id] = first
-                    }
-                    let artURL = songs.first(where: { $0.hasOwnArtwork })?.imageURL
-                    if let artURL {
-                        viewModel.artworkURLs[genre.id] = artURL
-                    }
-                }
-            }
-        } catch {}
     }
 }
 

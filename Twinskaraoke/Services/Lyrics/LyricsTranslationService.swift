@@ -26,10 +26,12 @@ final class LyricsTranslationService {
         request.httpMethod = "POST"
         request.timeoutInterval = 30
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        if let token = UserDefaults.standard.string(forKey: "nk.token"), !token.isEmpty {
-            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        if Self.isFirstPartyEndpoint(endpointURL) {
+            if let token = CredentialStore.token {
+                request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+            }
+            GuestIdentity.applyIfNeeded(to: &request)
         }
-        GuestIdentity.applyIfNeeded(to: &request)
         request.httpBody = try JSONEncoder().encode(TranslationRequest(songID: songID, lyrics: lyrics))
 
         var lastError: Error?
@@ -77,6 +79,16 @@ final class LyricsTranslationService {
         }
 
         throw lastError ?? LyricsTranslationError.invalidResponse
+    }
+
+    static func isFirstPartyEndpoint(_ url: URL) -> Bool {
+        guard url.scheme?.lowercased() == "https",
+              let host = url.host?.lowercased(),
+              url.port == nil || url.port == 443
+        else {
+            return false
+        }
+        return host == "api.neurokaraoke.com" || host == "api.neurokaraoke.com.cn"
     }
 
     private var endpointURL: URL? {

@@ -88,7 +88,7 @@ final class LibrarySongsViewModel: ObservableObject {
         request.httpMethod = "POST"
         request.timeoutInterval = 15
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        if let token = UserDefaults.standard.string(forKey: "nk.token") {
+        if let token = CredentialStore.token {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
         GuestIdentity.applyIfNeeded(to: &request)

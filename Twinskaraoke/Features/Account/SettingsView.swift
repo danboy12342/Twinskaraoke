@@ -12,10 +12,6 @@ struct SettingsView: View {
     @AppStorage("nk.appearance") private var appearanceMode: String = AppearanceMode.system.rawValue
     @AppStorage(AppLanguage.storageKey) private var languageMode: String = AppLanguage.system.rawValue
     @AppStorage("nk.respectReducedMotion") private var respectReducedMotion: Bool = true
-    @AppStorage("nk.notifications.newSongs") private var notificationsNewSongs = true
-    @AppStorage("nk.notifications.radio") private var notificationsRadio = true
-    @AppStorage("nk.notifications.downloads") private var notificationsDownloads = true
-    @AppStorage("nk.notifications.account") private var notificationsAccount = true
     @State private var pendingAction: SettingsDestructiveAction?
     @State private var showAutoAnalyzeAlert = false
     private var visibleEQPresets: [EQPreset] {
@@ -94,7 +90,6 @@ struct SettingsView: View {
             }
             equalizerSection
             lyricsSection
-            notificationsSection
             appearanceSection
             storageSection
             developerSection
@@ -186,31 +181,6 @@ struct SettingsView: View {
             Text("Lyrics")
         } footer: {
             Text("Animated lyrics and transitions follow your motion preference.")
-        }
-    }
-
-    private var notificationsSection: some View {
-        Section {
-            NotificationPreferenceToggle(
-                title: "New Songs",
-                isOn: $notificationsNewSongs
-            )
-            NotificationPreferenceToggle(
-                title: "Radio",
-                isOn: $notificationsRadio
-            )
-            NotificationPreferenceToggle(
-                title: "Downloads",
-                isOn: $notificationsDownloads
-            )
-            NotificationPreferenceToggle(
-                title: "Account",
-                isOn: $notificationsAccount
-            )
-        } header: {
-            Text("Notifications")
-        } footer: {
-            Text("Preferences are saved on this device and use the same account settings style as Music.")
         }
     }
 
@@ -980,6 +950,60 @@ private struct CrossfadeDurationRow: View {
             .tint(.appAccent)
         }
         .padding(.vertical, 2)
+    }
+}
+
+struct NotificationsView: View {
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    @AppStorage("nk.notifications.newSongs") private var notificationsNewSongs = true
+    @AppStorage("nk.notifications.radio") private var notificationsRadio = true
+    @AppStorage("nk.notifications.downloads") private var notificationsDownloads = true
+    @AppStorage("nk.notifications.account") private var notificationsAccount = true
+
+    var body: some View {
+        Group {
+            if horizontalSizeClass == .regular {
+                ZStack(alignment: .top) {
+                    Color.appGroupedBackground.ignoresSafeArea()
+                    notificationsList
+                        .frame(maxWidth: 640, maxHeight: .infinity, alignment: .top)
+                        .padding(.horizontal, AM.Spacing.screenMargin)
+                        .accessibilityIdentifier("Notifications.WideOverview")
+                }
+            } else {
+                notificationsList
+            }
+        }
+        .navigationTitle("Notifications")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+
+    private var notificationsList: some View {
+        List {
+            Section {
+                NotificationPreferenceToggle(
+                    title: "New Songs",
+                    isOn: $notificationsNewSongs
+                )
+                NotificationPreferenceToggle(
+                    title: "Radio",
+                    isOn: $notificationsRadio
+                )
+                NotificationPreferenceToggle(
+                    title: "Downloads",
+                    isOn: $notificationsDownloads
+                )
+                NotificationPreferenceToggle(
+                    title: "Account",
+                    isOn: $notificationsAccount
+                )
+            } footer: {
+                Text("Preferences are saved on this device and use the same account settings style as Music.")
+            }
+        }
+        .listStyle(.insetGrouped)
+        .scrollContentBackground(.hidden)
+        .background(Color.appGroupedBackground.ignoresSafeArea())
     }
 }
 

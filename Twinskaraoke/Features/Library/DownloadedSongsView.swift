@@ -5,6 +5,7 @@ struct DownloadedSongsView: View {
     @StateObject private var recentlyPlayed = RecentlyPlayedStore.shared
     @Environment(\.appReduceMotion) private var reduceMotion
     @State private var localSongs: [Song] = []
+    @State private var refreshTask: Task<Void, Never>?
 
     @State private var showsCollapsedTitle = false
     @State private var showRemoveAllConfirmation = false
@@ -110,8 +111,13 @@ struct DownloadedSongsView: View {
             AppHaptic.selection.play()
             refresh()
         }
-        .onAppear { refresh() }
-        .onChange(of: downloads.downloadedIDs) { _, _ in refresh() }
+        .onAppear { refreshImmediately() }
+        .onChange(of: downloads.downloadedIDs) { _, _ in scheduleRefresh() }
+        .onDisappear {
+            refreshTask?.cancel()
+            refreshTask = nil
+            ArtworkPrefetcher.shared.cancel(reason: "downloaded songs")
+        }
     }
 
     private func sanitizedViewportSize(_ size: CGSize) -> CGSize {
@@ -203,6 +209,22 @@ struct DownloadedSongsView: View {
             withAnimation(.spring(response: 0.34, dampingFraction: 0.84)) {
                 localSongs = songs
             }
+        }
+    }
+
+    private func refreshImmediately() {
+        refreshTask?.cancel()
+        refreshTask = nil
+        refresh()
+    }
+
+    private func scheduleRefresh() {
+        refreshTask?.cancel()
+        refreshTask = Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(250))
+            guard !Task.isCancelled else { return }
+            refreshTask = nil
+            refresh()
         }
     }
 

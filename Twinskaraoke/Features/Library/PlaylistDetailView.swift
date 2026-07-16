@@ -78,19 +78,23 @@ struct PlaylistDetailView: View {
             guard playlist.isFavorites else { return }
             loader.reload(playlistID: playlist.id, fallback: playlist.songListDTOs)
         }
+        .onDisappear {
+            ArtworkPrefetcher.shared.cancel(reason: "playlist cover \(playlist.id)")
+            ArtworkPrefetcher.shared.cancel(reason: "playlist songs \(playlist.id)")
+        }
     }
 
     private func prefetchArtwork(songs: [Song]) {
         ArtworkPrefetcher.shared.prefetchPlaylists(
             [playlist],
             limit: 6,
-            reason: "playlist cover",
+            reason: "playlist cover \(playlist.id)",
             variant: .thumbnail
         )
         ArtworkPrefetcher.shared.prefetchSongs(
             Array(songs.prefix(18)),
             limit: 18,
-            reason: "playlist songs",
+            reason: "playlist songs \(playlist.id)",
             variant: .row
         )
     }
