@@ -26,10 +26,18 @@ struct PlayerAmbientBackground: View {
         .ignoresSafeArea()
         .animation(reduceMotion ? nil : .easeInOut(duration: 0.4), value: artworkURL)
         .animation(reduceMotion ? nil : .easeInOut(duration: 0.8), value: palette)
-        .onAppear(perform: loadPalette)
+        .onAppear {
+            loadPalette()
+            if isPlaying { startBreathing() }
+        }
+        .onDisappear(perform: stopBreathing)
         .onChange(of: artworkURL) { loadPalette() }
         .onChange(of: isPlaying) { _, playing in
-            if playing { startBreathing() }
+            if playing {
+                startBreathing()
+            } else {
+                stopBreathing()
+            }
         }
         .onChange(of: reduceMotion) { _, reduceMotion in
             if reduceMotion {
@@ -40,9 +48,6 @@ struct PlayerAmbientBackground: View {
                 startBreathing()
             }
         }
-            .onAppear {
-                if isPlaying { startBreathing() }
-            }
     }
 
     private func startBreathing() {
@@ -58,6 +63,12 @@ struct PlayerAmbientBackground: View {
         }
     }
 
+    private func stopBreathing() {
+        withAnimation(nil) {
+            animationPhase = false
+        }
+    }
+
     @ViewBuilder
     private var blurredArtworkLayer: some View {
         if let artworkURL {
@@ -69,9 +80,10 @@ struct PlayerAmbientBackground: View {
                 ) { image in
                     image
                         .resizable()
+                        .interpolation(.low)
                         .aspectRatio(contentMode: .fill)
                         .frame(width: geo.size.width, height: geo.size.height)
-                        .blur(radius: 58)
+                        .blur(radius: runtimeBlurRadius)
                         .saturation(1.05)
                         .scaleEffect(shouldAnimateAmbient ? 1.28 : 1.22)
                         .offset(
@@ -99,8 +111,8 @@ struct PlayerAmbientBackground: View {
                     palette.secondary.opacity(0.22),
                     palette.tertiary.opacity(0.28),
                 ],
-                startPoint: shouldAnimateAmbient ? .topLeading : .top,
-                endPoint: shouldAnimateAmbient ? .bottomTrailing : .bottom
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
             )
 
             Rectangle()
@@ -143,6 +155,36 @@ struct PlayerAmbientBackground: View {
             startPoint: .topLeading,
             endPoint: .bottomTrailing
         )
+    }
+
+    private var runtimeBlurRadius: CGFloat {
+        guard let artworkURL else { return 0 }
+        let options = Self.imageTransformOptions(from: artworkURL)
+        let sourceBlur = options["blur"].flatMap(Double.init) ?? 0
+        let sourceWidth = options["width"].flatMap(Double.init)
+        return sourceBlur > 0 || sourceWidth.map { $0 <= 32 } == true ? 12 : 42
+    }
+
+    private static func imageTransformOptions(from url: URL) -> [String: String] {
+        guard let components = URLComponents(url: url, resolvingAgainstBaseURL: false) else { return [:] }
+        var options: [String: String] = [:]
+        for item in components.queryItems ?? [] {
+            options[item.name.lowercased()] = item.value ?? ""
+        }
+
+        let pathParts = components.path.split(separator: "/")
+        guard let imageIndex = pathParts.indices.first(where: {
+            pathParts[$0] == "image" && $0 > pathParts.startIndex && pathParts[$0 - 1] == "cdn-cgi"
+        }) else { return options }
+
+        let optionIndex = pathParts.index(after: imageIndex)
+        guard optionIndex < pathParts.endIndex else { return options }
+        for option in pathParts[optionIndex].split(separator: ",") {
+            let pair = option.split(separator: "=", maxSplits: 1)
+            guard pair.count == 2 else { continue }
+            options[String(pair[0]).lowercased()] = String(pair[1])
+        }
+        return options
     }
 
     private func loadPalette() {

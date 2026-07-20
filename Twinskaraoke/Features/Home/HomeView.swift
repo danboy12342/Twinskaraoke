@@ -5,6 +5,7 @@ struct HomeView: View {
     @StateObject private var recentlyPlayed = RecentlyPlayedStore.shared
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @Environment(\.appReduceMotion) private var reduceMotion
+    @State private var artworkPrefetchTracker = ArtworkPrefetchTracker()
 
     private var loadingAnimation: Animation? {
         reduceMotion ? nil : AppMotion.spring(response: 0.38, dampingFraction: 0.84)
@@ -40,14 +41,14 @@ struct HomeView: View {
                 }
             }
             .refreshable { viewModel.fetchHomeData(force: true) }
-            .onChange(of: viewModel.isLoading) { _, isLoading in
-                guard !isLoading else { return }
-                prefetchVisibleArtwork()
+            .onChange(of: artworkPrefetchSignature) { _, _ in
+                prefetchVisibleArtworkIfNeeded()
             }
             .onAppear {
-                prefetchVisibleArtwork()
+                prefetchVisibleArtworkIfNeeded()
             }
             .onDisappear {
+                artworkPrefetchTracker.reset()
                 ArtworkPrefetcher.shared.cancel(reason: "home songs")
                 ArtworkPrefetcher.shared.cancel(reason: "home playlists")
             }
@@ -158,17 +159,33 @@ struct HomeView: View {
         return viewModel.trending
     }
 
-    private func prefetchVisibleArtwork() {
-        let songs =
-            [homeHeroSong, homeSecondarySong].compactMap { $0 }
+    private var artworkPrefetchSongs: [Song] {
+        [homeHeroSong, homeSecondarySong].compactMap { $0 }
             + Array(viewModel.suggestions.prefix(8))
             + Array(viewModel.newReleases.prefix(8))
             + Array(viewModel.trending.prefix(8))
-        ArtworkPrefetcher.shared.prefetchSongs(songs, limit: 18, reason: "home songs")
-        ArtworkPrefetcher.shared.prefetchPlaylists(
-            Array((recentlyPlayed.playlists + viewModel.recentPlaylists).prefix(8)),
-            limit: 12,
-            reason: "home playlists"
+    }
+
+    private var artworkPrefetchPlaylists: [Playlist] {
+        Array((recentlyPlayed.playlists + viewModel.recentPlaylists).prefix(8))
+    }
+
+    private var artworkPrefetchSignature: ArtworkPrefetchSignature {
+        ArtworkPrefetchSignature(
+            songs: artworkPrefetchSongs,
+            playlists: artworkPrefetchPlaylists
+        )
+    }
+
+    private func prefetchVisibleArtworkIfNeeded() {
+        artworkPrefetchTracker.prefetch(
+            signature: artworkPrefetchSignature,
+            songs: artworkPrefetchSongs,
+            playlists: artworkPrefetchPlaylists,
+            songReason: "home songs",
+            playlistReason: "home playlists",
+            songLimit: 18,
+            playlistLimit: 12
         )
     }
 
