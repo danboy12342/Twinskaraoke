@@ -7,8 +7,8 @@ All credits go to the website creator "Soul". This is a companion app for the we
 
 This App Created By
 - [@ytsodacan](https://github.com/ytsodacan) (SillyProotSoda) 
-- [@XiaoYuan151](https://github.com/XiaoYuan151) (XiaoYuan151).  
-
+- [@XiaoYuan151](https://github.com/XiaoYuan151) (XiaoYuan151)
+- [@Mag1cByt3s](https://github.com/Mag1cByt3s) (MagicBytes).
 
 > Warning : currently the installation means you must sideload the app every 7 days.
 
@@ -216,4 +216,3 @@ After 7 days, the app will crash immediately when you try to open it. **You do n
 
 ## License
 This project is licensed under the [Apache-2.0 License](LICENSE).
-

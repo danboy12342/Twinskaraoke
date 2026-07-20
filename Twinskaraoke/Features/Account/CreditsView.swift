@@ -33,7 +33,7 @@ struct CreditsView: View {
             Section("iOS App Developers") {
                 creditRow(name: "XiaoYuan151", detail: "Main Developer", url: "https://github.com/XiaoYuan151")
                 creditRow(name: "SillyProotSoda", detail: "Main Developer", url: "https://sillyprootsoda.com")
-                creditRow(name: "MagicBytes", detail: "did like 18 pull requests lule", url: "https://github.com/Mag1cByt3s")
+                creditRow(name: "MagicBytes", detail: "Maintainer", url: "https://github.com/Mag1cByt3s")
             }
             
             Section("Banner & Branding") {
