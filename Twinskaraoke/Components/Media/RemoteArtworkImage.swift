@@ -42,7 +42,7 @@ struct RemoteArtworkImage: View {
             if !transparentBackground {
                 MusicArtworkPlaceholder(cornerRadius: cornerRadius)
             }
-            if let lowResURL, !fullLoaded, shouldUseLowResolutionPreview {
+            if let lowResURL, !fullLoaded, shouldPreferProgressiveArtwork {
                 WebImage(
                     url: lowResURL,
                     options: [.fromCacheOnly],
@@ -91,6 +91,7 @@ struct RemoteArtworkImage: View {
         }
     }
 
+    @MainActor
     private func markRendered(_ loadedURL: URL) {
         guard url == loadedURL, renderedFullURL != loadedURL || !fullLoaded || loadFailed else { return }
         withOptionalAnimation(loadAnimation) {
@@ -125,12 +126,10 @@ struct RemoteArtworkImage: View {
     }
 
     private var shouldAnimateLoad: Bool {
-        guard !ScrollPerformanceState.shared.isScrolling else { return false }
-        guard let fixedDisplaySize else { return true }
-        return max(fixedDisplaySize.width, fixedDisplaySize.height) > 96
+        !ScrollPerformanceState.shared.isScrolling && shouldPreferProgressiveArtwork
     }
 
-    private var shouldUseLowResolutionPreview: Bool {
+    private var shouldPreferProgressiveArtwork: Bool {
         guard let fixedDisplaySize else { return true }
         return max(fixedDisplaySize.width, fixedDisplaySize.height) > 96
     }

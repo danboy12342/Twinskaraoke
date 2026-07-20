@@ -32,7 +32,7 @@ final class ScrollPerformanceState: ObservableObject {
 
         let generation = scrollEndGeneration
         let workItem = DispatchWorkItem { [weak self] in
-            MainActor.assumeIsolated {
+            Task { @MainActor [weak self] in
                 guard let self, self.scrollEndGeneration == generation else { return }
                 self.scrollEndWorkItem = nil
                 self.setScrolling(false)
