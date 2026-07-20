@@ -2,6 +2,8 @@ import SwiftUI
 
 struct PlayerVolumeRow: View {
     @EnvironmentObject var audioManager: AudioPlayerManager
+    @Environment(\.scenePhase) private var scenePhase
+    @State private var volumeBridgeGeneration = 0
     var horizontalPadding: CGFloat = 32
 
     var body: some View {
@@ -33,8 +35,15 @@ struct PlayerVolumeRow: View {
                 SystemVolumeBridge(
                     volume: $audioManager.volume,
                     isUserScrubbing: $audioManager.isUserScrubbingVolume
-                ).frame(width: 0, height: 0)
+                )
+                .id(volumeBridgeGeneration)
+                .frame(width: 1, height: 1)
             )
+            .onChange(of: scenePhase) { _, newPhase in
+                if newPhase == .active {
+                    volumeBridgeGeneration += 1
+                }
+            }
         #endif
     }
 }
