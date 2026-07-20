@@ -6,8 +6,6 @@ import SwiftUI
     import UIKit
 #endif
 
-// MARK: - Playback State
-
 @MainActor
 private final class PopupPlaybackState: ObservableObject {
     static let shared = PopupPlaybackState()
@@ -123,8 +121,6 @@ private struct PopupPlaybackSnapshot {
     }
 }
 
-// MARK: - Root Views
-
 struct ContentView: View {
     var body: some View {
         PopupHostView()
@@ -141,7 +137,7 @@ private struct PopupHostView: View {
     init() {
         _selectedSection = State(initialValue: Self.initialSection)
     }
-    
+
     var body: some View {
         rootShell
             .modifier(PopupModifier())
@@ -292,8 +288,6 @@ private struct PopupHostView: View {
     }
 }
 
-// MARK: - App Navigation Enums
-
 private enum RootSection: String, CaseIterable, Identifiable {
     case home
     case new
@@ -378,8 +372,6 @@ private enum RootSectionGroup: String, CaseIterable, Identifiable {
         }
     }
 }
-
-// MARK: - Sidebar Helper Views
 
 private struct SidebarSectionRow: View {
     let section: RootSection
@@ -479,128 +471,45 @@ private extension RootSection {
     }
 }
 
-// MARK: - LNPopupUI Modifiers & iOS 27 Fallback
-
 private struct PopupModifier: ViewModifier {
     @ObservedObject private var popupState = PopupPlaybackState.shared
     @ObservedObject private var presentationState = PopupPresentationState.shared
-    
-    // We need this to check if we are showing a TabBar (compact) or Sidebar (regular)
-    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
 
     func body(content: Content) -> some View {
-        Group {
-            if SystemCompatibility.isIOS27OrNewer {
-                // iOS 27 Beta Safe Fallback Layout
-                content
-                    .overlay(alignment: .bottom) {
-                        if popupState.hasCurrentSong {
-                            iOS27FallbackMiniPlayer
-                                // Margins on the side for the floating look
-                                .padding(.horizontal, 10)
-                                // 49pt (Standard TabBar height) + 8pt (spacing) to hover perfectly above the bottom tabs.
-                                // If it's an iPad/Sidebar layout (.regular), we only need 8pt of bottom padding.
-                                .padding(.bottom, horizontalSizeClass == .compact ? 57 : 8)
-                        }
-                    }
-                    .sheet(isPresented: Binding(
-                        get: { presentationState.isExpanded },
-                        set: { presentationState.setExpanded($0) }
-                    )) {
-                        FullScreenPlayerView()
-                            .environmentObject(AudioPlayerManager.shared)
-                    }
-            } else {
-                // Stable LNPopupUI Native Layout
-                content
-                    .popup(
-                        isBarPresented: .constant(popupState.hasCurrentSong),
-                        isPopupOpen: Binding(
-                            get: { presentationState.isExpanded },
-                            set: { isOpen in
-                                if isOpen {
-                                    #if canImport(UIKit)
-                                        let isIntentionalOpen =
-                                            presentationState.isExpanded || PopupOpenIntentGate.shared.consumeIntent()
-                                        guard isIntentionalOpen else {
-                                            presentationState.collapse()
-                                            return
-                                        }
-                                    #endif
+        content
+            .popup(
+                isBarPresented: .constant(popupState.hasCurrentSong),
+                isPopupOpen: Binding(
+                    get: { presentationState.isExpanded },
+                    set: { isOpen in
+                        if isOpen {
+                            #if canImport(UIKit)
+                                let isIntentionalOpen =
+                                    presentationState.isExpanded || PopupOpenIntentGate.shared.consumeIntent()
+                                guard isIntentionalOpen else {
+                                    presentationState.collapse()
+                                    return
                                 }
-                                presentationState.setExpanded(isOpen)
-                            }
-                        )
-                    ) {
-                        PopupContent(popupState: popupState)
+                            #endif
+                        }
+                        presentationState.setExpanded(isOpen)
                     }
-                    .popupBarStyle(.floating)
-                    .popupBarProgressViewStyle(.none)
-                    .popupCloseButtonStyle(.none)
-                    .popupInteractionStyle(.drag)
-                    .popupBarMarqueeScrollEnabled(false)
-                    .popupBarCustomizer { popupBar in
-                        popupBar.accessibilityIdentifier = "MiniPlayerBar"
-                        popupBar.accessibilityLabel = "Now Playing"
-                        popupBar.accessibilityHint = "Opens the full-screen player."
-                        PopupOpenIntentGate.shared.installTouchRecognizer(on: popupBar)
-                    }
+                )
+            ) {
+                PopupContent(popupState: popupState)
             }
-        }
-    }
-    
-    // Custom iOS 27 Fallback Mini Player (Styled exactly like the original floating player)
-    @ViewBuilder
-    private var iOS27FallbackMiniPlayer: some View {
-        HStack(spacing: 12) {
-            if let artwork = popupState.artwork {
-                Image(uiImage: artwork)
-                    .resizable()
-                    .scaledToFill()
-                    .frame(width: 44, height: 44)
-                    .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
-                    .shadow(color: .black.opacity(0.1), radius: 2, y: 1)
-            } else {
-                MusicArtworkPlaceholder(cornerRadius: 6)
-                    .frame(width: 44, height: 44)
+            .popupBarStyle(.floating)
+            .popupBarProgressViewStyle(.none)
+            .popupCloseButtonStyle(.none)
+            .popupInteractionStyle(.drag)
+            .popupBarMarqueeScrollEnabled(false)
+            .popupBarCustomizer { popupBar in
+                popupBar.accessibilityIdentifier = "MiniPlayerBar"
+                popupBar.accessibilityLabel = "Now Playing"
+                popupBar.accessibilityHint = "Opens the full-screen player."
+
+                PopupOpenIntentGate.shared.installTouchRecognizer(on: popupBar)
             }
-            
-            VStack(alignment: .leading, spacing: 2) {
-                Text(popupState.title)
-                    .font(.headline)
-                    .lineLimit(1)
-                if !popupState.subtitle.isEmpty {
-                    Text(popupState.subtitle)
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
-                        .lineLimit(1)
-                }
-            }
-            
-            Spacer(minLength: 8)
-            
-            PopupBarTrailingItems(
-                isPlaying: popupState.isPlaying,
-                isRadioMode: popupState.isRadioMode,
-                onTogglePlayPause: {
-                    AudioPlayerManager.shared.togglePlayPause()
-                },
-                onNext: {
-                    AudioPlayerManager.shared.playNextOrRandom()
-                }
-            )
-        }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 10)
-        // Replicate the floating LNPopupUI pill style
-        .background(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(.regularMaterial)
-                .shadow(color: .black.opacity(0.15), radius: 10, x: 0, y: 5)
-        )
-        .onTapGesture {
-            presentationState.setExpanded(true)
-        }
     }
 }
 
