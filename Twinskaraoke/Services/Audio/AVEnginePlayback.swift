@@ -345,6 +345,26 @@ final class AVEnginePlayback {
         }
     }
 
+    deinit {
+        MainActor.assumeIsolated {
+            if let engineConfigObserver {
+                NotificationCenter.default.removeObserver(engineConfigObserver)
+            }
+            crossfadeTimer?.invalidate()
+            handoffBlendTimer?.invalidate()
+            singleLoadTask?.cancel()
+            stemsLoadTask?.cancel()
+            switchToStemsLoadTask?.cancel()
+            crossfadePreloadTask?.cancel()
+            crossfadeFinalizeTask?.cancel()
+            mainPlayer.stop()
+            crossfadePlayer.stop()
+            stemVocals.stop()
+            stemInstrumental.stop()
+            engine.stop()
+        }
+    }
+
     func startEngineIfNeeded() {
         if !engine.isRunning {
             do {
