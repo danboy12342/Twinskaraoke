@@ -227,6 +227,10 @@ nonisolated enum KaraokeAPIClient {
     }
   }
 
+  static func uploadedSongs() async throws -> [Song] {
+    try await fetchUploadedSongs()
+  }
+
   private static func fetchUploadedSongs() async throws -> [Song] {
     let data = try await data(for: uploadedSongsRequest())
     guard let songs = SongPayloadDecoder.decodeSongs(from: data) else {
