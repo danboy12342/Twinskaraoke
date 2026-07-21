@@ -212,22 +212,50 @@ nonisolated struct Song: Codable, Identifiable, Equatable, Sendable {
   var downloadCoverImageURL: URL? {
     guard hasOwnArtwork else { return nil }
     return ArtworkURLBuilder.imageURL(
-      cloudflareID: cloudflareID,
-      path: coverArt?.absolutePath,
+      cloudflareID: artworkCloudflareID,
+      path: artworkPath,
       variant: .download
     )
   }
 
   private func imageURL(variant: ArtworkImageVariant) -> URL? {
     ArtworkURLBuilder.imageURL(
-      cloudflareID: cloudflareID,
-      path: coverArt?.absolutePath,
+      cloudflareID: artworkCloudflareID,
+      path: artworkPath,
       variant: variant
     ) ?? neuroFallbackImageURL
   }
 
   var hasOwnArtwork: Bool {
-    cloudflareID != nil || coverArt?.absolutePath != nil
+    artworkCloudflareID != nil || artworkPath != nil
+  }
+
+  func fillingMissingMetadata(from canonical: Song) -> Song {
+    guard id == canonical.id else { return self }
+    return Song(
+      id: id,
+      title: title,
+      duration: duration > 0 ? duration : canonical.duration,
+      absolutePath: Self.preferredString(absolutePath, fallback: canonical.absolutePath),
+      cloudflareID: Self.preferredString(cloudflareID, fallback: canonical.cloudflareID),
+      coverArt: hasUsableArtwork(coverArt) ? coverArt : canonical.coverArt,
+      originalArtists: Self.preferredArtists(originalArtists, fallback: canonical.originalArtists),
+      coverArtists: Self.preferredArtists(coverArtists, fallback: canonical.coverArtists),
+      userUploaded: userUploaded ?? canonical.userUploaded,
+      oss: Self.preferredString(oss, fallback: canonical.oss)
+    )
+  }
+
+  private var artworkCloudflareID: String? {
+    Self.preferredString(cloudflareID, fallback: coverArt?.cloudflareId)
+  }
+
+  private var artworkPath: String? {
+    Self.preferredString(coverArt?.absolutePath, fallback: nil)
+  }
+
+  private func hasUsableArtwork(_ media: Media?) -> Bool {
+    Self.preferredString(media?.cloudflareId, fallback: media?.absolutePath) != nil
   }
 
   private static let neuroArtistNames: Set<String> = ["Neuro", "Neuro v1", "Neuro v2"]
@@ -358,6 +386,16 @@ nonisolated struct Song: Codable, Identifiable, Equatable, Sendable {
       }
     }
     return nil
+  }
+
+  private static func preferredArtists(_ artists: [String]?, fallback: [String]?) -> [String]? {
+    guard let artists else { return fallback }
+    return artists.isEmpty ? fallback : artists
+  }
+
+  private static func preferredString(_ value: String?, fallback: String?) -> String? {
+    guard let value else { return fallback }
+    return value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? fallback : value
   }
 
   private static func audioURL(from source: String) -> URL? {

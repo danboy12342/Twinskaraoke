@@ -293,6 +293,30 @@ struct SongModelTests {
         #expect(song.cloudflareID == "artwork-id")
     }
 
+    @Test("Song uses artwork identifier nested inside coverArt")
+    func songUsesNestedCoverArtworkIdentifier() throws {
+        let json = """
+        {
+          "id": "favorite-upload",
+          "title": "Uploaded Favorite",
+          "duration": 180,
+          "absolutePath": "uploads/favorite.m4a",
+          "coverArt": {"cloudflareId": "nested-artwork-id"},
+          "userUploaded": true
+        }
+        """.data(using: .utf8)!
+
+        let song = try JSONDecoder().decode(Song.self, from: json)
+
+        #expect(song.cloudflareID == nil)
+        #expect(song.coverArt?.cloudflareId == "nested-artwork-id")
+        #expect(song.hasOwnArtwork)
+        #expect(
+            song.imageURL?.absoluteString
+                == "https://images.neurokaraoke.com/cdn-cgi/image/width=480,quality=85,format=webp/nested-artwork-id/public"
+        )
+    }
+
     @Test("Favorite responses decode uploaded songs wrapped in an envelope")
     func favoriteEnvelopeDecodesUploadedSong() throws {
         let json = """
@@ -320,6 +344,184 @@ struct SongModelTests {
             songs.first?.audioURL?.absoluteString
                 == "https://storage.neurokaraoke.com/uploads/Uploaded%20Favorite.mp3"
         )
+    }
+
+    @Test("Uploaded favorites fill missing artwork from canonical song metadata")
+    func uploadedFavoriteFillsMissingArtwork() throws {
+        let favorite = Song(
+            id: "favorite-upload",
+            title: "Uploaded Favorite",
+            duration: 0,
+            absolutePath: nil,
+            cloudflareID: nil,
+            coverArt: nil,
+            originalArtists: [],
+            coverArtists: nil,
+            userUploaded: true,
+            oss: nil
+        )
+        let canonical = Song(
+            id: "favorite-upload",
+            title: "Canonical Title",
+            duration: 213,
+            absolutePath: "uploads/Uploaded Favorite.m4a",
+            cloudflareID: "uploaded-artwork-id",
+            coverArt: Media(absolutePath: "/uploads/cover.jpg"),
+            originalArtists: ["Original Artist"],
+            coverArtists: ["Uploader"],
+            userUploaded: true,
+            oss: "uploads/fallback.m4a"
+        )
+
+        let hydrated = favorite.fillingMissingMetadata(from: canonical)
+
+        #expect(hydrated.title == "Uploaded Favorite")
+        #expect(hydrated.duration == 213)
+        #expect(hydrated.absolutePath == "uploads/Uploaded Favorite.m4a")
+        #expect(hydrated.cloudflareID == "uploaded-artwork-id")
+        #expect(hydrated.coverArt?.absolutePath == "/uploads/cover.jpg")
+        #expect(hydrated.originalArtists == ["Original Artist"])
+        #expect(hydrated.coverArtists == ["Uploader"])
+        #expect(hydrated.oss == "uploads/fallback.m4a")
+        #expect(hydrated.hasOwnArtwork)
+    }
+
+    @Test("Favorite metadata hydrates when the upload flag is omitted")
+    func favoriteMetadataHydratesWithoutUploadFlag() {
+        let favorite = Song(
+            id: "favorite-upload",
+            title: "Uploaded Favorite",
+            duration: 180,
+            absolutePath: "uploads/favorite.m4a",
+            cloudflareID: nil,
+            coverArt: nil,
+            originalArtists: nil,
+            coverArtists: nil,
+            userUploaded: nil
+        )
+        let canonical = Song(
+            id: "favorite-upload",
+            title: "Uploaded Favorite",
+            duration: 180,
+            absolutePath: "uploads/favorite.m4a",
+            cloudflareID: nil,
+            coverArt: Media(absolutePath: nil, cloudflareId: "canonical-artwork-id"),
+            originalArtists: nil,
+            coverArtists: ["Uploader"],
+            userUploaded: true
+        )
+
+        let hydrated = favorite.fillingMissingMetadata(from: canonical)
+
+        #expect(hydrated.userUploaded == true)
+        #expect(hydrated.coverArt?.cloudflareId == "canonical-artwork-id")
+        #expect(
+            hydrated.rowImageURL?.absoluteString
+                == "https://images.neurokaraoke.com/cdn-cgi/image/width=180,quality=78,format=webp/canonical-artwork-id/public"
+        )
+    }
+
+    @Test("Bulk song metadata request posts the song ID array")
+    func bulkSongMetadataRequestPostsIDs() throws {
+        let request = try KaraokeAPIClient.songsByIDsRequest(["first-id", "second-id"])
+        let body = try #require(request.httpBody)
+
+        #expect(request.httpMethod == "POST")
+        #expect(request.url?.path == "/api/songs/by-ids")
+        #expect(request.value(forHTTPHeaderField: "Content-Type") == "application/json")
+        #expect(try JSONDecoder().decode([String].self, from: body) == ["first-id", "second-id"])
+    }
+
+    @Test("Uploaded song metadata request uses the authenticated uploads route")
+    func uploadedSongMetadataRequestUsesUploadsRoute() throws {
+        let request = try KaraokeAPIClient.uploadedSongsRequest()
+
+        #expect(request.httpMethod == "GET")
+        #expect(request.url?.path == "/api/user/songs")
+    }
+
+    @Test("Uploaded song metadata takes priority when hydrating favorites")
+    func uploadedSongMetadataTakesPriorityForFavorites() throws {
+        let favorite = Song(
+            id: "favorite-upload",
+            title: "Uploaded Favorite",
+            duration: 180,
+            absolutePath: "uploads/favorite.m4a",
+            cloudflareID: nil,
+            coverArt: nil,
+            originalArtists: nil,
+            coverArtists: nil,
+            userUploaded: nil
+        )
+        let catalogVersion = Song(
+            id: "favorite-upload",
+            title: "Uploaded Favorite",
+            duration: 180,
+            absolutePath: "uploads/favorite.m4a",
+            cloudflareID: "catalog-artwork-id",
+            coverArt: nil,
+            originalArtists: nil,
+            coverArtists: nil,
+            userUploaded: nil
+        )
+        let uploadedVersion = Song(
+            id: "favorite-upload",
+            title: "Uploaded Favorite",
+            duration: 180,
+            absolutePath: "uploads/favorite.m4a",
+            cloudflareID: "uploaded-artwork-id",
+            coverArt: nil,
+            originalArtists: nil,
+            coverArtists: ["Uploader"],
+            userUploaded: true
+        )
+
+        let hydrated = try #require(
+            KaraokeAPIClient.hydratingFavorites(
+                [favorite],
+                canonicalSongs: [catalogVersion],
+                uploadedSongs: [uploadedVersion]
+            ).first
+        )
+
+        #expect(hydrated.cloudflareID == "uploaded-artwork-id")
+        #expect(hydrated.userUploaded == true)
+        #expect(hydrated.coverArtists == ["Uploader"])
+    }
+
+    @Test("Favorite metadata keeps values already supplied by favorites endpoint")
+    func favoriteMetadataKeepsExistingValues() {
+        let favorite = Song(
+            id: "favorite-upload",
+            title: "Favorite Title",
+            duration: 180,
+            absolutePath: "favorites/audio.m4a",
+            cloudflareID: "favorite-artwork-id",
+            coverArt: Media(absolutePath: "/favorites/cover.jpg"),
+            originalArtists: ["Favorite Artist"],
+            coverArtists: ["Favorite Uploader"],
+            userUploaded: true,
+            oss: "favorites/fallback.m4a"
+        )
+        let canonical = Song(
+            id: "favorite-upload",
+            title: "Canonical Title",
+            duration: 213,
+            absolutePath: "canonical/audio.m4a",
+            cloudflareID: "canonical-artwork-id",
+            coverArt: Media(absolutePath: "/canonical/cover.jpg"),
+            originalArtists: ["Canonical Artist"],
+            coverArtists: ["Canonical Uploader"],
+            userUploaded: true,
+            oss: "canonical/fallback.m4a"
+        )
+
+        let hydrated = favorite.fillingMissingMetadata(from: canonical)
+
+        #expect(hydrated == favorite)
+        #expect(hydrated.cloudflareID == "favorite-artwork-id")
+        #expect(hydrated.coverArt?.absolutePath == "/favorites/cover.jpg")
+        #expect(hydrated.originalArtists == ["Favorite Artist"])
     }
 
     @Test("Playlist detail skips malformed songs instead of failing the playlist")

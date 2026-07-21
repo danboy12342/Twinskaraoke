@@ -92,7 +92,51 @@ nonisolated enum KaraokeAPIClient {
       queryItems: [URLQueryItem(name: "type", value: "0")]
     )
     let data = try await data(for: request)
-    return SongPayloadDecoder.decodeSongs(from: data) ?? []
+    let songs = SongPayloadDecoder.decodeSongs(from: data) ?? []
+    return await hydrateFavoriteSongs(songs)
+  }
+
+  private static func hydrateFavoriteSongs(_ songs: [Song]) async -> [Song] {
+    guard !songs.isEmpty else { return songs }
+    async let canonicalResult = try? fetchSongs(ids: songs.map(\.id))
+    async let uploadedResult = try? uploadedSongs()
+    return hydratingFavorites(
+      songs,
+      canonicalSongs: await canonicalResult ?? [],
+      uploadedSongs: await uploadedResult ?? []
+    )
+  }
+
+  static func hydratingFavorites(
+    _ songs: [Song],
+    canonicalSongs: [Song],
+    uploadedSongs: [Song]
+  ) -> [Song] {
+    var canonicalByID = Dictionary(
+      canonicalSongs.map { ($0.id, $0) },
+      uniquingKeysWith: { first, _ in first }
+    )
+    for uploadedSong in uploadedSongs {
+      canonicalByID[uploadedSong.id] = uploadedSong
+    }
+    return songs.map { favorite in
+      guard let canonical = canonicalByID[favorite.id] else { return favorite }
+      return favorite.fillingMissingMetadata(from: canonical)
+    }
+  }
+
+  static func uploadedSongs() async throws -> [Song] {
+    let data = try await data(for: uploadedSongsRequest())
+    guard let songs = SongPayloadDecoder.decodeSongs(from: data) else {
+      throw APIError.decodeFailed
+    }
+    return songs
+  }
+
+  static func uploadedSongsRequest() throws -> URLRequest {
+    var request = try request(path: "/api/user/songs")
+    request.httpMethod = "GET"
+    return request
   }
 
   static func songSuggestions(take: Int) async throws -> [Song] {
@@ -128,6 +172,28 @@ nonisolated enum KaraokeAPIClient {
     if let songs = try? decode([Song].self, from: data), let song = songs.first { return song }
     if let song = songFromJSONObject(data) { return song }
     throw APIError.decodeFailed
+  }
+
+  static func fetchSongs(ids: [String]) async throws -> [Song] {
+    var seenIDs = Set<String>()
+    let uniqueIDs = ids.filter { id in
+      seenIDs.insert(id).inserted
+    }
+    guard !uniqueIDs.isEmpty else { return [] }
+    let request = try songsByIDsRequest(uniqueIDs)
+    let data = try await data(for: request)
+    guard let songs = SongPayloadDecoder.decodeSongs(from: data) else {
+      throw APIError.decodeFailed
+    }
+    return songs
+  }
+
+  static func songsByIDsRequest(_ ids: [String]) throws -> URLRequest {
+    var request = try request(path: "/api/songs/by-ids")
+    request.httpMethod = "POST"
+    request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+    request.httpBody = try JSONEncoder().encode(ids)
+    return request
   }
 
   private static func songFromJSONObject(_ data: Data) -> Song? {
