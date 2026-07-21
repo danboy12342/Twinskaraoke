@@ -1,4 +1,64 @@
 import Foundation
+import os
+
+actor UploadedSongMetadataCache {
+  private struct Entry: Sendable {
+    let songs: [Song]
+    let coveredIDs: Set<String>
+    let expiresAt: Date
+  }
+
+  private let lifetime: TimeInterval
+  private var cachedValue: Entry?
+  private var inFlight: (id: UUID, task: Task<[Song], Error>)?
+
+  init(lifetime: TimeInterval) {
+    self.lifetime = lifetime
+  }
+
+  func value(
+    for requestedIDs: Set<String>,
+    at now: Date = Date(),
+    loader: @escaping @Sendable () async throws -> [Song]
+  ) async throws -> [Song] {
+    guard !requestedIDs.isEmpty else { return [] }
+    if let cachedValue,
+      cachedValue.expiresAt > now,
+      requestedIDs.isSubset(of: cachedValue.coveredIDs)
+    {
+      return cachedValue.songs.filter { requestedIDs.contains($0.id) }
+    }
+
+    let request: (id: UUID, task: Task<[Song], Error>)
+    if let inFlight {
+      request = inFlight
+    } else {
+      let id = UUID()
+      let task = Task { try await loader() }
+      request = (id, task)
+      inFlight = request
+    }
+
+    do {
+      let songs = try await request.task.value
+      let coveredIDs = (cachedValue?.coveredIDs ?? []).union(requestedIDs)
+      cachedValue = Entry(
+        songs: songs,
+        coveredIDs: coveredIDs,
+        expiresAt: now.addingTimeInterval(lifetime)
+      )
+      if inFlight?.id == request.id {
+        inFlight = nil
+      }
+      return songs.filter { requestedIDs.contains($0.id) }
+    } catch {
+      if inFlight?.id == request.id {
+        inFlight = nil
+      }
+      throw error
+    }
+  }
+}
 
 nonisolated enum KaraokeAPIClient {
   enum APIError: Error {
@@ -8,6 +68,12 @@ nonisolated enum KaraokeAPIClient {
     case httpStatus(Int)
     case decodeFailed
   }
+
+  private static let favoriteMetadataLogger = Logger(
+    subsystem: "com.xiaoyuan151.Twinskaraoke",
+    category: "Network"
+  )
+  private static let uploadedSongMetadataCache = UploadedSongMetadataCache(lifetime: 60)
 
   static func trendingSongs(days: Int = 7, take: Int? = nil) async throws -> [Song] {
     try await trendingSongs(days: String(days), take: take)
@@ -92,7 +158,87 @@ nonisolated enum KaraokeAPIClient {
       queryItems: [URLQueryItem(name: "type", value: "0")]
     )
     let data = try await data(for: request)
-    return SongPayloadDecoder.decodeSongs(from: data) ?? []
+    let songs = SongPayloadDecoder.decodeSongs(from: data) ?? []
+    return try await hydrateFavoriteSongs(songs)
+  }
+
+  private static func hydrateFavoriteSongs(_ songs: [Song]) async throws -> [Song] {
+    guard !songs.isEmpty else { return songs }
+    async let canonicalResult = favoriteCatalogMetadata(ids: songs.map(\.id))
+    async let uploadedResult = favoriteUploadedMetadata(ids: songs.map(\.id))
+    return hydratingFavorites(
+      songs,
+      canonicalSongs: try await canonicalResult,
+      uploadedSongs: try await uploadedResult
+    )
+  }
+
+  private static func favoriteCatalogMetadata(ids: [String]) async throws -> [Song] {
+    do {
+      return try await fetchSongs(ids: ids)
+    } catch {
+      try rethrowIfCancelled(error)
+      favoriteMetadataLogger.error(
+        "Favorite catalog metadata fetch failed: \(String(describing: error), privacy: .public)"
+      )
+      return []
+    }
+  }
+
+  private static func favoriteUploadedMetadata(ids: [String]) async throws -> [Song] {
+    do {
+      return try await uploadedSongs(matching: ids)
+    } catch {
+      try rethrowIfCancelled(error)
+      favoriteMetadataLogger.error(
+        "Favorite uploaded metadata fetch failed: \(String(describing: error), privacy: .public)"
+      )
+      return []
+    }
+  }
+
+  private static func rethrowIfCancelled(_ error: Error) throws {
+    if error is CancellationError || (error as? URLError)?.code == .cancelled {
+      throw error
+    }
+  }
+
+  static func hydratingFavorites(
+    _ songs: [Song],
+    canonicalSongs: [Song],
+    uploadedSongs: [Song]
+  ) -> [Song] {
+    var canonicalByID = Dictionary(
+      canonicalSongs.map { ($0.id, $0) },
+      uniquingKeysWith: { first, _ in first }
+    )
+    for uploadedSong in uploadedSongs {
+      canonicalByID[uploadedSong.id] = uploadedSong
+    }
+    return songs.map { favorite in
+      guard let canonical = canonicalByID[favorite.id] else { return favorite }
+      return favorite.fillingMissingMetadata(from: canonical)
+    }
+  }
+
+  static func uploadedSongs(matching ids: [String]) async throws -> [Song] {
+    try await uploadedSongMetadataCache.value(for: Set(ids)) {
+      try await fetchUploadedSongs()
+    }
+  }
+
+  private static func fetchUploadedSongs() async throws -> [Song] {
+    let data = try await data(for: uploadedSongsRequest())
+    guard let songs = SongPayloadDecoder.decodeSongs(from: data) else {
+      throw APIError.decodeFailed
+    }
+    return songs
+  }
+
+  static func uploadedSongsRequest() throws -> URLRequest {
+    var request = try request(path: "/api/user/songs")
+    request.httpMethod = "GET"
+    return request
   }
 
   static func songSuggestions(take: Int) async throws -> [Song] {
@@ -128,6 +274,28 @@ nonisolated enum KaraokeAPIClient {
     if let songs = try? decode([Song].self, from: data), let song = songs.first { return song }
     if let song = songFromJSONObject(data) { return song }
     throw APIError.decodeFailed
+  }
+
+  static func fetchSongs(ids: [String]) async throws -> [Song] {
+    var seenIDs = Set<String>()
+    let uniqueIDs = ids.filter { id in
+      seenIDs.insert(id).inserted
+    }
+    guard !uniqueIDs.isEmpty else { return [] }
+    let request = try songsByIDsRequest(uniqueIDs)
+    let data = try await data(for: request)
+    guard let songs = SongPayloadDecoder.decodeSongs(from: data) else {
+      throw APIError.decodeFailed
+    }
+    return songs
+  }
+
+  static func songsByIDsRequest(_ ids: [String]) throws -> URLRequest {
+    var request = try request(path: "/api/songs/by-ids")
+    request.httpMethod = "POST"
+    request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+    request.httpBody = try JSONEncoder().encode(ids)
+    return request
   }
 
   private static func songFromJSONObject(_ data: Data) -> Song? {
