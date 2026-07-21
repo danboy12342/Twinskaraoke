@@ -67,7 +67,7 @@ struct UploadedSongsView: View {
         }
         .refreshable {
             AppHaptic.selection.play()
-            viewModel.refresh()
+            await viewModel.refresh()
         }
         .task {
             viewModel.loadIfNeeded()
@@ -142,7 +142,9 @@ struct UploadedSongsView: View {
 
             if viewModel.loadFailed {
                 MusicEmptyActionButton(title: "Try Again") {
-                    viewModel.refresh()
+                    Task {
+                        await viewModel.refresh()
+                    }
                 }
             }
         }

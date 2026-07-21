@@ -1,3 +1,4 @@
+import Foundation
 import Testing
 @testable import Twinskaraoke
 
@@ -13,6 +14,13 @@ struct UploadedSongsViewModelTests {
 
         #expect(songs.map(\.id) == ["first", "second"])
         #expect(songs.first?.title == "First")
+    }
+
+    @Test("Task and URL cancellations use the cancellation path")
+    func cancellationErrorsUseCancellationPath() {
+        #expect(UploadedSongsViewModel.isCancellationError(CancellationError()))
+        #expect(UploadedSongsViewModel.isCancellationError(URLError(.cancelled)))
+        #expect(!UploadedSongsViewModel.isCancellationError(URLError(.timedOut)))
     }
 
     private func song(id: String, title: String) -> Song {

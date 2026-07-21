@@ -17,19 +17,24 @@ final class UploadedSongsViewModel: ObservableObject {
 
     private var hasLoaded = false
     private var loadTask: Task<Void, Never>?
+    private var requestGeneration = 0
 
     func loadIfNeeded() {
         guard !hasLoaded else { return }
-        load()
+        startLoad()
     }
 
-    func refresh() {
-        load()
+    func refresh() async {
+        startLoad()
+        let task = loadTask
+        await task?.value
     }
 
-    private func load() {
+    private func startLoad() {
         loadTask?.cancel()
         loadTask = nil
+        requestGeneration &+= 1
+        let generation = requestGeneration
         loadFailed = false
 
         guard CredentialStore.token != nil else {
@@ -42,22 +47,21 @@ final class UploadedSongsViewModel: ObservableObject {
         }
 
         requiresSignIn = false
-        isLoading = songs.isEmpty
+        isLoading = true
         loadTask = Task { [weak self] in
             do {
                 let loadedSongs = try await KaraokeAPIClient.uploadedSongs()
                 try Task.checkCancellation()
-                guard let self else { return }
+                guard let self, generation == requestGeneration else { return }
 
                 songs = Self.removingDuplicateSongs(loadedSongs)
                 hasLoaded = true
                 isLoading = false
                 loadTask = nil
                 rebuildDisplayedSongs()
-            } catch is CancellationError {
-                // A newer refresh owns the loading state.
             } catch {
-                guard let self else { return }
+                guard !Self.isCancellationError(error) else { return }
+                guard let self, generation == requestGeneration else { return }
                 DebugLogger.log(
                     "Uploaded songs fetch failed: \(error.localizedDescription)",
                     category: .network
@@ -99,6 +103,10 @@ final class UploadedSongsViewModel: ObservableObject {
     nonisolated static func removingDuplicateSongs(_ songs: [Song]) -> [Song] {
         var seenIDs = Set<String>()
         return songs.filter { seenIDs.insert($0.id).inserted }
+    }
+
+    nonisolated static func isCancellationError(_ error: Error) -> Bool {
+        error is CancellationError || (error as? URLError)?.code == .cancelled
     }
 
     deinit {
