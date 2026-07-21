@@ -61,7 +61,8 @@ final class UploadedSongsViewModel: ObservableObject {
                 isLoading = false
                 rebuildDisplayedSongs()
 
-                let songsWithDurations = await Self.fillingMissingDurations(in: uniqueSongs)
+                let songsWithDurations = await UploadedSongDurationResolver.shared
+                    .fillingMissingDurations(in: uniqueSongs)
                 try Task.checkCancellation()
                 guard generation == requestGeneration else { return }
 
@@ -114,6 +115,78 @@ final class UploadedSongsViewModel: ObservableObject {
         return songs.filter { seenIDs.insert($0.id).inserted }
     }
 
+    nonisolated static func isCancellationError(_ error: Error) -> Bool {
+        error is CancellationError || (error as? URLError)?.code == .cancelled
+    }
+
+    deinit {
+        loadTask?.cancel()
+    }
+}
+
+actor UploadedSongDurationResolver {
+    static let shared = UploadedSongDurationResolver()
+
+    private var resolvedDurations: [String: Int] = [:]
+    private var lookupTasks: [String: Task<Int?, Never>] = [:]
+
+    func fillingMissingDurations(
+        in songs: [Song],
+        localAudioURLs: [String: URL] = [:]
+    ) async -> [Song] {
+        for song in songs where song.duration > 0 {
+            resolvedDurations[song.id] = song.duration
+        }
+
+        let songsNeedingDuration = songs.filter {
+            $0.duration <= 0
+                && resolvedDurations[$0.id] == nil
+                && Self.preferredAudioURL(
+                    for: $0,
+                    localAudioURLs: localAudioURLs
+                ) != nil
+        }
+        let songIDs = Set(songs.map(\.id))
+        var durationsForSongs = resolvedDurations.filter { songIDs.contains($0.key) }
+        guard !songsNeedingDuration.isEmpty else {
+            return Self.applyingResolvedDurations(durationsForSongs, to: songs)
+        }
+
+        let maximumConcurrentLookups = 4
+
+        for batchStart in stride(
+            from: 0,
+            to: songsNeedingDuration.count,
+            by: maximumConcurrentLookups
+        ) {
+            guard !Task.isCancelled else { return songs }
+            let batchEnd = min(
+                batchStart + maximumConcurrentLookups,
+                songsNeedingDuration.count
+            )
+            let batch = songsNeedingDuration[batchStart..<batchEnd]
+
+            await withTaskGroup(of: (String, Int?).self) { group in
+                for song in batch {
+                    group.addTask { [self] in
+                        let sourceURL = Self.preferredAudioURL(
+                            for: song,
+                            localAudioURLs: localAudioURLs
+                        )
+                        return (song.id, await duration(for: song, sourceURL: sourceURL))
+                    }
+                }
+                for await (songID, duration) in group {
+                    if let duration {
+                        durationsForSongs[songID] = duration
+                    }
+                }
+            }
+        }
+
+        return Self.applyingResolvedDurations(durationsForSongs, to: songs)
+    }
+
     nonisolated static func applyingResolvedDurations(
         _ durations: [String: Int],
         to songs: [Song]
@@ -139,44 +212,35 @@ final class UploadedSongsViewModel: ObservableObject {
         }
     }
 
-    private nonisolated static func fillingMissingDurations(in songs: [Song]) async -> [Song] {
-        let songsNeedingDuration = songs.filter { $0.duration <= 0 && $0.audioURL != nil }
-        guard !songsNeedingDuration.isEmpty else { return songs }
-
-        let maximumConcurrentLookups = 4
-        var resolvedDurations: [String: Int] = [:]
-
-        for batchStart in stride(
-            from: 0,
-            to: songsNeedingDuration.count,
-            by: maximumConcurrentLookups
-        ) {
-            guard !Task.isCancelled else { return songs }
-            let batchEnd = min(
-                batchStart + maximumConcurrentLookups,
-                songsNeedingDuration.count
-            )
-            let batch = songsNeedingDuration[batchStart..<batchEnd]
-
-            await withTaskGroup(of: (String, Int?).self) { group in
-                for song in batch {
-                    group.addTask {
-                        (song.id, await resolvedDuration(for: song))
-                    }
-                }
-                for await (songID, duration) in group {
-                    if let duration {
-                        resolvedDurations[songID] = duration
-                    }
-                }
-            }
-        }
-
-        return applyingResolvedDurations(resolvedDurations, to: songs)
+    nonisolated static func preferredAudioURL(
+        for song: Song,
+        localAudioURLs: [String: URL]
+    ) -> URL? {
+        localAudioURLs[song.id] ?? song.audioURL
     }
 
-    private nonisolated static func resolvedDuration(for song: Song) async -> Int? {
-        guard !Task.isCancelled, let audioURL = song.audioURL else { return nil }
+    private func duration(for song: Song, sourceURL: URL?) async -> Int? {
+        if let resolvedDuration = resolvedDurations[song.id] {
+            return resolvedDuration
+        }
+        if let lookupTask = lookupTasks[song.id] {
+            return await lookupTask.value
+        }
+
+        let lookupTask = Task {
+            await Self.loadDuration(from: sourceURL)
+        }
+        lookupTasks[song.id] = lookupTask
+        let duration = await lookupTask.value
+        lookupTasks[song.id] = nil
+        if let duration {
+            resolvedDurations[song.id] = duration
+        }
+        return duration
+    }
+
+    private nonisolated static func loadDuration(from audioURL: URL?) async -> Int? {
+        guard !Task.isCancelled, let audioURL else { return nil }
         do {
             let duration = try await AVURLAsset(url: audioURL).load(.duration)
             try Task.checkCancellation()
@@ -188,11 +252,4 @@ final class UploadedSongsViewModel: ObservableObject {
         }
     }
 
-    nonisolated static func isCancellationError(_ error: Error) -> Bool {
-        error is CancellationError || (error as? URLError)?.code == .cancelled
-    }
-
-    deinit {
-        loadTask?.cancel()
-    }
 }

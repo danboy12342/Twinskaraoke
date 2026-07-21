@@ -28,7 +28,7 @@ struct UploadedSongsViewModelTests {
         let missingDuration = song(id: "missing", title: "Missing", duration: 0)
         let existingDuration = song(id: "existing", title: "Existing", duration: 90)
 
-        let songs = UploadedSongsViewModel.applyingResolvedDurations(
+        let songs = UploadedSongDurationResolver.applyingResolvedDurations(
             ["missing": 214, "existing": 999],
             to: [missingDuration, existingDuration]
         )
@@ -39,12 +39,47 @@ struct UploadedSongsViewModelTests {
         #expect(songs[0].userUploaded == true)
     }
 
-    private func song(id: String, title: String, duration: Int = 120) -> Song {
+    @Test("Cached durations apply to sparse playlist songs")
+    func cachedDurationsApplyToSparsePlaylistSongs() async {
+        let resolver = UploadedSongDurationResolver()
+        let completeSong = song(id: "upload", title: "Upload", duration: 214)
+        _ = await resolver.fillingMissingDurations(in: [completeSong])
+
+        let sparsePlaylistSong = song(
+            id: "upload",
+            title: "Upload",
+            duration: 0,
+            includesAudioPath: false
+        )
+        let songs = await resolver.fillingMissingDurations(in: [sparsePlaylistSong])
+
+        #expect(songs.first?.duration == 214)
+    }
+
+    @Test("Local downloaded audio is preferred for duration lookup")
+    func localDownloadedAudioIsPreferredForDurationLookup() {
+        let uploadedSong = song(id: "upload", title: "Upload", duration: 0)
+        let localURL = URL(fileURLWithPath: "/tmp/upload.m4a")
+
+        let sourceURL = UploadedSongDurationResolver.preferredAudioURL(
+            for: uploadedSong,
+            localAudioURLs: [uploadedSong.id: localURL]
+        )
+
+        #expect(sourceURL == localURL)
+    }
+
+    private func song(
+        id: String,
+        title: String,
+        duration: Int = 120,
+        includesAudioPath: Bool = true
+    ) -> Song {
         Song(
             id: id,
             title: title,
             duration: duration,
-            absolutePath: "uploads/\(id).m4a",
+            absolutePath: includesAudioPath ? "uploads/\(id).m4a" : nil,
             cloudflareID: nil,
             coverArt: nil,
             originalArtists: nil,
