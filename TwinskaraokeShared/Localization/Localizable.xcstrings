@@ -13325,6 +13325,9 @@
     "Play random songs" : {
 
     },
+    "Play uploaded songs" : {
+
+    },
     "Playback" : {
       "localizations" : {
         "de" : {
@@ -17267,6 +17270,9 @@
         }
       }
     },
+    "Search Uploads" : {
+
+    },
     "Searching songs" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -18419,6 +18425,9 @@
     "Shuffle random songs" : {
 
     },
+    "Shuffle uploaded songs" : {
+
+    },
     "Sign In" : {
       "localizations" : {
         "de" : {
@@ -19518,6 +19527,9 @@
           }
         }
       }
+    },
+    "Sort Uploaded Songs" : {
+
     },
     "Source Code" : {
       "localizations" : {
@@ -21523,6 +21535,9 @@
           }
         }
       }
+    },
+    "Uploaded" : {
+
     },
     "Use the playback controls below." : {
       "localizations" : {
