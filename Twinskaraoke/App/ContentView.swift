@@ -523,14 +523,15 @@ private struct PopupContent: View {
     var body: some View {
         FullScreenPlayerView()
             .environmentObject(AudioPlayerManager.shared)
-            .background {
-                PopupMetadataPreferences(
+            // The popup bar only picks up title/image modifiers applied directly to the
+            // popup content view; hosting them in a background child leaves the bar blank.
+            .modifier(
+                PopupTitleModifier(
                     title: popupState.title,
-                    subtitle: popupState.subtitle,
-                    artwork: popupState.artwork
+                    subtitle: popupState.subtitle
                 )
-                .equatable()
-            }
+            )
+            .modifier(PopupImageModifier(artwork: popupState.artwork))
             .popupBarButtons {
                 PopupBarTrailingItems(
                     isPlaying: popupState.isPlaying,
@@ -552,28 +553,21 @@ private struct PopupContent: View {
     }
 }
 
-private struct PopupMetadataPreferences: View, Equatable {
+private struct PopupTitleModifier: ViewModifier, Equatable {
     let title: String
     let subtitle: String
-    let artwork: UIImage?
 
-    static func == (lhs: Self, rhs: Self) -> Bool {
-        lhs.title == rhs.title
-            && lhs.subtitle == rhs.subtitle
-            && lhs.artwork === rhs.artwork
-    }
-
-    var body: some View {
-        Color.clear
-            .frame(width: 1, height: 1)
-            .accessibilityHidden(true)
-            .popupTitle(verbatim: title, subtitle: subtitle)
-            .modifier(PopupMetadataImageModifier(artwork: artwork))
+    func body(content: Content) -> some View {
+        content.popupTitle(verbatim: title, subtitle: subtitle)
     }
 }
 
-private struct PopupMetadataImageModifier: ViewModifier {
+private struct PopupImageModifier: ViewModifier, Equatable {
     let artwork: UIImage?
+
+    static func == (lhs: Self, rhs: Self) -> Bool {
+        lhs.artwork === rhs.artwork
+    }
 
     func body(content: Content) -> some View {
         if let artwork {

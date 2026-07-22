@@ -995,9 +995,10 @@ struct FullScreenPlayerView: View {
         guard let url else { return }
         coverArtSaveStatus = .saving
         URLSession.shared.dataTask(with: url) { data, _, error in
-            DispatchQueue.main.async {
-                #if canImport(UIKit)
-                    if let data, let image = UIImage(data: data) {
+            #if canImport(UIKit)
+                // Decode off-main; a full-HD decode on the main queue can hitch the player UI.
+                if let data, let image = UIImage(data: data) {
+                    DispatchQueue.main.async {
                         ImageSaver.shared.save(image: image) { result in
                             DispatchQueue.main.async {
                                 switch result {
@@ -1009,9 +1010,11 @@ struct FullScreenPlayerView: View {
                                 resetCoverArtSaveStatusLater()
                             }
                         }
-                        return
                     }
-                #endif
+                    return
+                }
+            #endif
+            DispatchQueue.main.async {
                 coverArtSaveStatus = .failed(error?.localizedDescription ?? "Couldn't save")
                 resetCoverArtSaveStatusLater()
             }
@@ -1071,6 +1074,8 @@ struct FullScreenPlayerView: View {
                   let artist = coverArt["artist"] as? [String: Any]
             else { return }
             DispatchQueue.main.async {
+                // A slow response for a previous song must not label the current one.
+                guard audioManager.currentSong?.id == songID else { return }
                 coverArtArtistName = artist["name"] as? String
                 coverArtArtistLink = artist["socialLink"] as? String
             }
