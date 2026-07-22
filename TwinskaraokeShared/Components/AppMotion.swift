@@ -105,17 +105,17 @@ enum AppMotion {
   // Pick by role, not by taste-per-callsite:
 
   /// Small state flips: icons, badges, toggles, selection feedback.
-  static var snap: Animation { .spring(response: 0.22, dampingFraction: 0.88) }
+  static var snap: Animation { spring(response: 0.22, dampingFraction: 0.88) }
 
   /// The workhorse: row/list changes, control state, chrome reveals.
-  static var quick: Animation { .spring(response: 0.32, dampingFraction: 0.85) }
+  static var quick: Animation { spring(response: 0.32, dampingFraction: 0.85) }
 
   /// Content-level moves: section reflows, layout swaps, sheets' inner content.
-  static var standard: Animation { .spring(response: 0.42, dampingFraction: 0.84) }
+  static var standard: Animation { spring(response: 0.42, dampingFraction: 0.84) }
 
   /// Large surfaces: hero artwork, full-screen layout shifts, lyric scrolling.
-  static var gentle: Animation { .spring(response: 0.58, dampingFraction: 0.85) }
+  static var gentle: Animation { spring(response: 0.58, dampingFraction: 0.85) }
 
   /// Deliberately bouncy celebratory moments.
-  static var playful: Animation { .spring(response: 0.34, dampingFraction: 0.7) }
+  static var playful: Animation { spring(response: 0.34, dampingFraction: 0.7) }
 }
