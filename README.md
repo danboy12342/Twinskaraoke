@@ -91,7 +91,7 @@ All credits go to the website creator "Soul". This is a companion app for the we
 ### Follow the instructions below to install:
 
 1. Download the TestFlight app: [https://apps.apple.com/us/app/testflight/id899247664](https://apps.apple.com/us/app/testflight/id899247664)
-2. Login to TestFlight in the app with your Apple account.
+2. Log in to TestFlight in the app with your Apple account.
 3. Click on this link on your iPhone: [https://testflight.apple.com/join/PrNm97Vr](https://testflight.apple.com/join/PrNm97Vr)
 4. Click install.
 
