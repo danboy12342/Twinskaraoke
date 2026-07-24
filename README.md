@@ -12,28 +12,28 @@ All credits go to the website creator "Soul". This is a companion app for the we
 - [@NELC-Official](https://github.com/NELC-Official) (NELC-Official)
 
 
-> **Update : We are officially moving towards an App Store and TestFlight launch very soon! Stay tuned!**
+> **Update : We are officially live on TestFlight, sea installation info below! Stay tuned for the App Store!**
 >
-> Note: Until the official launch, the current installation method means you must sideload the app every 7 days.
+> Note: The watchOS app is still 100% in development please be patient with us, thank you!
 
 
 ## Features
 
 *   **Native Experience:** Better than the website!
 
-*   **Background Playback:** Full integration with the iOS Lock Screen and Control Center.
-*   **Apple Watch Companion:** Control from your wrist (work in progress)
+*  **Background Playback:** Full integration with the iOS Lock Screen and Control Center.
+*  **Apple Watch Companion:** Control from your wrist (work in progress)
 
-*   **Offline Play:** Listen to neuro and evil sing anywhere, even without the internet.
+*  **Offline Play:** Listen to neuro and evil sing anywhere, even without the internet.
 
 *  **Advanced Audio Controls:** A built-in 10-band parametric EQ
 
-* **Vocal & Instrumental Slider:** to separate tracks in real-time.
+*  **Vocal & Instrumental Slider:** to separate tracks in real-time.
 
-*   **Live Radio & Galleries:** Listen to live streaming radio episodes, and browse through thousands of fan artworks and videos.
+*  **Live Radio & Galleries:** Listen to live streaming radio episodes, and browse through thousands of fan artworks and videos.
 
 <details>
-<summary><b>screenshots</b></summary>
+<summary><b>Screenshots</b></summary>
 <br>
 
 <p align="center">
@@ -88,26 +88,39 @@ All credits go to the website creator "Soul". This is a companion app for the we
 
 # Twinskaraoke - iOS Installation Guide
 
-Currently, Twinskaraoke is not yet available on the App Store or via TestFlight. 
+### Follow the instructions below to install:
 
-To install the app on your iPhone or iPad today, you must use a sideloader or build from source.
+1. Download the TestFlight app: [https://apps.apple.com/us/app/testflight/id899247664](https://apps.apple.com/us/app/testflight/id899247664)
+2. Login to TestFlight in the app with your Apple account.
+3. Click on this link on your iPhone: [https://testflight.apple.com/join/PrNm97Vr](https://testflight.apple.com/join/PrNm97Vr)
+4. Click install.
+
+---
+
+#### You may also, optionally, Sideload or build from source. You can find the info below:
+
+<br>
+<details>
+<summary><b>Sideloading </b></summary>
 
 ## Install
 
-install using sideloading tools like [Sideloadly](https://sideloadly.io/) or [AltStore](https://altstore.io/).
+Install using sideloading tools like [Sideloadly](https://sideloadly.io/) or [AltStore](https://altstore.io/).
 you will need a free Apple ID.
 
-### Step 1: Download the App (Nightly Builds)
+---
+
+### Step 1: Download the App
 As we prepare for our App Store launch, we highly recommend using our Nightly Builds to get the latest features, bug fixes, and improvements!
 
-Go to the **[Nightly Releases](https://github.com/Evil-Project/Twinskaraoke/releases)** page on this repository and download the latest nightly `.ipa` file:
+Go to the **[Releases](https://github.com/Evil-Project/Twinskaraoke/releases)** page on this repository and download the latest `.ipa` file:
 * **`Twinskaraoke-iPhone-Sideload.ipa`** (Recommended for iPhone & iPad)
 
 ### Step 2: Sideload
-1. Open your favorite sideloading tool on your PC/Mac.
+1. Open your sideloading tool on your PC/Mac.
 2. Drag and drop the downloaded `.ipa` into the tool.
 3. Enter your standard Apple ID when prompted to sign the app.
-4. Hit install! 
+4. Click install. 
 
 *Sideloadly Users: Our IPA is pre-optimized for you. You do **NOT** need to click "Remove Plug-ins" in Advanced Options!*
 
@@ -116,12 +129,14 @@ If you wish to use the Apple Watch companion app, download the **`Twinskaraoke-W
 
 Free Apple accounts are limited to creating **10 App IDs every 7 days**. Because Watch apps use multiple App IDs at once, sideloading the Watch version may fail if you have hit Apple's server limit. If this happens, please stick to the iPhone-only IPA.
 
----
+</details>
 
+#  
+<br>
 <details>
 <summary><b>Build from Source </b></summary>
 <br>
-if you are familiar with the "magic" that is swift dev you may skip to 6c
+If you are familiar with the "magic" that is swift dev you may skip to 6c
 
 ### Requirements
 1. **A Mac computer** (Xcode is only available on macOS, any mac will do).
