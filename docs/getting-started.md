@@ -15,7 +15,7 @@ All credits go to the website creator "Soul". This is a companion app for the we
 - [@NELC-Official](https://github.com/NELC-Official) (NELC-Official)
 
 ::: info UPDATE
-**We are officially live on TestFlight, see the installation info below! Stay tuned for the App Store!**
+**We are officially live on TestFlight. See the installation info below! Stay tuned for the App Store!**
 :::
 ::: warning NOTE
 Sideloading is still available as an optional install method, but with a free Apple ID you must re-sign the app every 7 days. TestFlight is the recommended way to install.
